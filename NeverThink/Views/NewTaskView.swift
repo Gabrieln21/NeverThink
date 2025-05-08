@@ -1,8 +1,3 @@
-//
-//  NewTaskView.swift
-//  NeverThink
-//
-
 import SwiftUI
 
 enum TimeSensitivity: String, CaseIterable, Identifiable, Codable {
@@ -22,14 +17,16 @@ struct NewTaskView: View {
     @State private var title: String = ""
     @State private var duration: Int = 30
     @State private var isTimeSensitive: Bool = false
-    @State private var timeSensitivityType: TimeSensitivity = .startsAt // 🧠 STARTS AT SELECTED BY DEFAULT
+    @State private var timeSensitivityType: TimeSensitivity = .startsAt
     @State private var exactTime: Date = Date()
     @State private var startTime: Date = Date()
     @State private var endTime: Date = Date()
     @State private var urgency: UrgencyLevel = .medium
-    @State private var isLocationSensitive: Bool = false
+
+    // 🏠 New Location States
+    @State private var isAtHome: Bool = true
+    @State private var isAnywhere: Bool = true
     @State private var location: String = ""
-    @State private var category: TaskCategory = .doAnywhere
 
     var body: some View {
         NavigationView {
@@ -77,15 +74,13 @@ struct NewTaskView: View {
                 }
 
                 Section(header: Text("Location")) {
-                    Toggle("Needs location", isOn: $isLocationSensitive)
+                    Toggle("🏠 At Home?", isOn: $isAtHome)
 
-                    if isLocationSensitive {
-                        TextField("Enter location", text: $location)
-                    }
+                    if !isAtHome {
+                        Toggle("🛫 Anywhere?", isOn: $isAnywhere)
 
-                    Picker("Category", selection: $category) {
-                        ForEach(TaskCategory.allCases, id: \.self) { cat in
-                            Text(cat.rawValue)
+                        if !isAnywhere {
+                            TextField("Enter address", text: $location)
                         }
                     }
                 }
@@ -99,7 +94,7 @@ struct NewTaskView: View {
                             Spacer()
                         }
                     }
-                    .disabled(title.isEmpty)
+                    .disabled(title.isEmpty || (!isAtHome && !isAnywhere && location.isEmpty)) // 🧠 Prevent saving if required location missing
                 }
             }
             .navigationTitle("New Task")
@@ -135,9 +130,17 @@ struct NewTaskView: View {
             duration: duration,
             isTimeSensitive: isTimeSensitive,
             urgency: urgency,
-            isLocationSensitive: isLocationSensitive,
-            location: isLocationSensitive ? location : nil,
-            category: category,
+            isLocationSensitive: !isAtHome, // 🏠 Only true if not at home
+            location: {
+                if isAtHome {
+                    return "Home"
+                } else if isAnywhere {
+                    return "Anywhere"
+                } else {
+                    return location.isEmpty ? nil : location
+                }
+            }(),
+            category: .doAnywhere, // 🔥 Category stays "do anywhere" — no need for picker anymore
             timeSensitivityType: sensitivityTypeForSaving,
             exactTime: actualExactTime,
             timeRangeStart: actualStartTime,

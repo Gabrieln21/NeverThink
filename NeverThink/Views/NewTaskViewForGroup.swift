@@ -41,7 +41,7 @@ struct NewTaskViewForGroup: View {
                             Text(type.rawValue)
                         }
                     }
-                    .pickerStyle(SegmentedPickerStyle())
+                    .pickerStyle(SegmentedPickerStyle()) // <--- this makes the 3 buttons appear side by side
 
                     if timeSensitivityType == .dueBy {
                         DatePicker("Due by", selection: $exactTime, displayedComponents: [.hourAndMinute])

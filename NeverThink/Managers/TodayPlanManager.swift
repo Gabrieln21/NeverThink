@@ -2,11 +2,7 @@
 //  TodayPlanManager.swift
 //  NeverThink
 //
-//  Created by Gabriel Hernandez on 4/25/25.
-//
-//
-//  TodayPlanManager.swift
-//  NeverThink
+//  Created by Gabriel Fernandez on 4/25/25.
 //
 
 import Foundation

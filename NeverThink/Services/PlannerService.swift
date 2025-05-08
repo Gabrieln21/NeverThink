@@ -54,6 +54,7 @@ class PlannerService: NSObject, CLLocationManagerDelegate {
             self.locationContinuation = continuation
             requestLocation()
 
+            // 🚨 Add a timeout fallback!
             DispatchQueue.main.asyncAfter(deadline: .now() + 10) {
                 if self.locationContinuation != nil {
                     continuation.resume(throwing: NSError(domain: "PlannerService", code: 99, userInfo: [
@@ -113,83 +114,92 @@ class PlannerService: NSObject, CLLocationManagerDelegate {
 
         let prompt = """
         You are an intelligent personal assistant helping a real person plan their entire day on \(dateString).
+
         Their **starting location** is approximately Latitude: \(userLocation.latitude), Longitude: \(userLocation.longitude).
         They are traveling by **\(transportMode)**. The current time is **\(currentTime)**.
 
         You are given a list of tasks with varying:
-        - Durations
-        - Urgency levels
-        - Time constraints (due-by, start time, time ranges)
-        - Location sensitivity
+        - Duration
+        - Urgency
+        - Time constraints (due-by, start time, or time range)
+        - Location sensitivity:
+          - "Home" ➔ The user is already at home, no travel needed.
+          - "Anywhere" ➔ Flexible location, no travel needed.
+          - Specific Address ➔ Must **travel** to a specific place.
 
-        🧠 Your job: Build a **fully detailed, realistic daily schedule** that includes:
+        🎯 Your job: Build a **realistic full-day schedule** including:
         ✅ All tasks
-        ✅ All required **travel time between tasks**
-        ✅ An initial **travel event from the user's current location to the first task**
+        ✅ Travel time between tasks if needed
+        ✅ Initial travel time from the user's starting location to the first task if needed
 
         ---
 
         You must:
-        - Begin by determining which task should come first based on urgency, location, and timing.
-        - **Insert a travel event from the user's current location to the first task.**
-          - This event should have a clear start time, end time, and explain why it’s needed.
-          - Ensure they leave early enough from their current location to arrive on time.
-        - Insert additional **travel events between tasks at different locations**.
-        - Estimate travel time using:
-          - Walk: ~3 mph
-          - Drive: 25–40 mph (urban)
-          - Public Transit: include wait time and buffer
-        - Honor all time-sensitive constraints (exact times and ranges).
-        - Spread out tasks to avoid burnout (no nonstop overload).
-        - Prioritize higher urgency tasks. Lower priority tasks may be **shortened, delayed, or skipped** if needed.
-        - Use your best judgment when conflicts arise — act like a proactive, thoughtful assistant.
+        - Begin by choosing the first task based on urgency, time, and location.
+        - **If the first task is not "Home" or "Anywhere"**, insert a travel event from the user's current location.
+        - Insert **travel events between tasks** if the previous and next tasks are at different locations (excluding "Anywhere" tasks).
+        - Calculate travel time using:
+          - Walking: ~3 mph
+          - Driving: ~25–40 mph (urban)
+          - Public Transit: reasonable wait and buffer
+        - Respect time-sensitive constraints (due-by, start times, ranges).
+        - Spread out work to prevent burnout (avoid back-to-back without breaks).
+        - Prioritize urgent tasks. Shorten, delay, or skip lower-priority tasks if needed.
+        - Make smart, human-like decisions for conflicts — act like a great personal assistant.
 
         ---
 
-        🚗 **TRAVEL EVENTS must:**
+        🚗 **Travel events must:**
         - Be titled: "Travel to [Task Title or Location]"
         - Include:
-          - Estimated travel duration
+          - Estimated travel time
           - Clear start_time and end_time
-          - Notes field: travel details
-          - Reason field: why it was scheduled when it was
+          - Notes: travel details (e.g., "20 min drive to dentist")
+          - Reason: why it was scheduled at that time
 
-        🕒 Time format: **12-hour AM/PM** only — e.g., "08:45 AM", "1:15 PM".
-
-        ---
-
-        ⚠️ Conflicts? Handle smartly:
-        - If two tasks conflict, prioritize based on urgency and constraints.
-        - Clearly state in the "reason" field why something was delayed, shortened, or omitted.
+        🕒 **Time format:** Always **12-hour AM/PM** — e.g., "08:45 AM", "1:15 PM".
 
         ---
 
-        ✅ Final output format: A **raw JSON array** like this:
+        ⚡ Special location rules:
+        - "Home" tasks do not require travel if already at home.
+        - "Anywhere" tasks do not require travel and can be inserted flexibly.
+        - Specific addresses require travel to the listed address.
+
+        ---
+
+        ⚠️ If two tasks overlap, prioritize based on urgency and strictness of time constraints.
+        - Clearly explain any dropped, delayed, or shortened tasks inside the "reason" field.
+
+        ---
+
+        ✅ Output format: **Only a raw JSON array**, like:
 
         [
           {
-            "start_time": "08:30 AM",
-            "end_time": "09:00 AM",
+            "start_time": "08:00 AM",
+            "end_time": "08:30 AM",
             "title": "Travel to Dentist",
-            "notes": "Estimated 30 min drive from current location. Leaving early to arrive on time.",
-            "reason": "First task of the day. Leaving early from current location to reach dentist by 9:00 AM."
+            "notes": "30 min drive to dentist. Leaving from current location.",
+            "reason": "First task of the day, ensuring arrival by 9:00 AM."
           },
           {
             "start_time": "09:00 AM",
             "end_time": "09:30 AM",
             "title": "Dentist Appointment",
-            "notes": "Location: 123 Main St. Urgency: High. Category: Be Somewhere.",
-            "reason": "Scheduled early to prioritize health and minimize morning traffic."
+            "notes": "Location: 123 Main St. Urgency: High.",
+            "reason": "Prioritized health appointment early in the day."
           }
         ]
 
         ---
 
-        🚫 Do NOT include intros, markdown, explanations, or any non-JSON text.
+        🚫 DO NOT include introductions, markdown, explanations, or anything besides the JSON array.
 
         Tasks:
         \(formattedTasks)
         """
+
 
 
 

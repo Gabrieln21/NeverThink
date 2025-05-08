@@ -13,6 +13,7 @@ struct TopicsView: View {
     var body: some View {
         NavigationView {
             List {
+                // Only show topics that are NOT date-based
                 ForEach(groupManager.groups.filter { !isDateBasedGroup($0.name) }) { group in
                     NavigationLink(destination: TaskListViewForGroup(group: group)
                         .environmentObject(groupManager)
@@ -39,6 +40,7 @@ struct TopicsView: View {
         }
     }
 
+    // 🔥 Helper function to detect if a group's name is date-based
     func isDateBasedGroup(_ name: String) -> Bool {
         let dateFormatter = DateFormatter()
         dateFormatter.dateStyle = .long

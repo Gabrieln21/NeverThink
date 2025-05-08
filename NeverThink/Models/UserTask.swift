@@ -20,7 +20,7 @@ struct UserTask: Identifiable, Codable, Hashable, Equatable {
     var exactTime: Date?
     var timeRangeStart: Date?
     var timeRangeEnd: Date?
-    var date: Date? 
+    var date: Date?
 }
 
 
