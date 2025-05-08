@@ -1,21 +1,21 @@
-# 🧠 planMee – AI-Powered Daily Task Manager
+# NeverThink – AI-Powered Daily Task Manager
 **CSC 660/680 App Design Project**
 
-## 👥 Group Members
+## Group Member
 - Gabriel Fernandez (fernandezgabriel0@gmail.com)
 
 ---
 
-## 📝 Project Proposal
+## Project Proposal
 
 **planMee** is a smart task manager built with SwiftUI that helps users structure their day efficiently using AI. Instead of simply listing tasks, users will input key details like estimated time, urgency, location sensitivity, and optional location info. The app will then generate an optimized, traffic-aware schedule to maximize time and minimize stress.
 
-### 🎯 Core Concept:
-> Enter your tasks → Tell planMee how long they take → AI builds the most efficient day for you.
+### Core Concept:
+> Enter your tasks → Tell NeverThink how long they take → AI builds the most efficient day for you.
 
 ---
 
-## ✅ Must-Have Features
+## Must-Have Features
 - Create, edit, and delete tasks
 - Set time estimate per task
 - Mark task as **location-sensitive** (vs. anywhere)
@@ -32,7 +32,7 @@
 
 ---
 
-## 🎁 Nice-to-Have Features
+## Nice-to-Have Features
 - Real traffic API integration (e.g., Apple Maps or Google Maps)
 - Smart notifications: “Leave in 10 mins to avoid traffic”
 - Dark/light mode toggle
@@ -44,8 +44,8 @@
 
 ---
 
-## 🖼️ Basic Wireframes
-> *(Hand-drawn or Figma screenshots go here — just insert them in your repo and link or drag into the README)*
+## Basic Wireframes
+(Included in repo)
 
 1. **Task Entry Screen**
    - Text field for task name
@@ -69,8 +69,8 @@
 
 ---
 
-## 🛠 Tech Stack
+## Tech Stack
 - **SwiftUI** (main UI)
 - **CoreData** or **Firebase** (task storage)
-- (Optional) Apple Maps or Google Maps SDK
-- Custom AI logic (mocked traffic optimization)
+- Google Maps SDK
+- Custom AI logic
