@@ -1,0 +1,86 @@
+//
+//  TaskDetailView.swift
+//  NeverThink
+//
+//  Created by Gabriel Fernandez on 4/25/25.
+//
+import SwiftUI
+
+struct TaskDetailView: View {
+    @EnvironmentObject var taskManager: TaskManager
+    @Environment(\.presentationMode) var presentationMode
+
+    var task: UserTask
+    var taskIndex: Int
+
+    var body: some View {
+        Form {
+            Section {
+                Text(task.title)
+                    .font(.title)
+                    .bold()
+
+                HStack {
+                    Image(systemName: "clock")
+                    Text("Duration: \(task.duration) minutes")
+                }
+
+                if task.isTimeSensitive {
+                    switch task.timeSensitivityType {
+                    case .dueBy:
+                        if let dueBy = task.exactTime {
+                            Text("Due by: \(dueBy.formatted(date: .omitted, time: .shortened))")
+                        }
+                    case .startsAt:
+                        if let startsAt = task.exactTime {
+                            Text("Starts at: \(startsAt.formatted(date: .omitted, time: .shortened))")
+                        }
+                    case .busyFromTo:
+                        if let start = task.timeRangeStart, let end = task.timeRangeEnd {
+                            Text("Busy from: \(start.formatted(date: .omitted, time: .shortened)) to \(end.formatted(date: .omitted, time: .shortened))")
+                        }
+                    }
+                }
+
+                HStack {
+                    Text("Urgency: \(task.urgency.rawValue)")
+                }
+            } header: {
+                Text("Task Info")
+            }
+
+            if task.isLocationSensitive, let loc = task.location {
+                Section {
+                    Text(loc)
+                } header: {
+                    Text("Location")
+                }
+            }
+
+            Section {
+                Text(task.category.rawValue)
+            } header: {
+                Text("Category")
+            }
+
+            Section {
+                Button(role: .destructive) {
+                    deleteTask()
+                } label: {
+                    Label("Delete Task", systemImage: "trash")
+                }
+            }
+        }
+        .navigationTitle("Task Details")
+        .toolbar {
+            NavigationLink(destination: EditTaskView(taskIndex: taskIndex, task: task)) {
+                Text("Edit")
+            }
+        }
+    }
+
+    func deleteTask() {
+        taskManager.tasks.remove(at: taskIndex)
+        presentationMode.wrappedValue.dismiss()
+    }
+}
