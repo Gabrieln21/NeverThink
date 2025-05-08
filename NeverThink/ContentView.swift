@@ -10,8 +10,7 @@ struct ContentView: View {
     @StateObject var groupManager = TaskGroupManager()
 
     init() {
-        //Unpushable API key config
-        //PlannerService.shared.configure()
+        PlannerService.shared.configure(apiKey: "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")
     }
 
     var body: some View {
