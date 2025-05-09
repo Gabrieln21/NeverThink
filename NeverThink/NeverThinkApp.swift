@@ -5,7 +5,6 @@
 //  Created by Gabriel Fernandez on 4/25/25.
 //
 
-
 import SwiftUI
 
 @main
@@ -13,6 +12,7 @@ struct NeverThinkApp: App {
     @StateObject private var authManager = AuthenticationManager()
     @StateObject private var groupManager = TaskGroupManager()
     @StateObject private var todayPlanManager = TodayPlanManager()
+    @StateObject private var recurringTaskManager = RecurringTaskManager()
 
     init() {
         PlannerService.shared.requestLocation()
@@ -31,9 +31,8 @@ struct NeverThinkApp: App {
                     .environmentObject(authManager)
                     .environmentObject(groupManager)
                     .environmentObject(todayPlanManager)
+                    .environmentObject(recurringTaskManager)
             }
         }
     }
 }
-
-

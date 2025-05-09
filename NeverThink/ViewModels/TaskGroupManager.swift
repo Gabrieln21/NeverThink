@@ -4,6 +4,7 @@
 //
 //  Created by Gabriel Fernandez on 4/25/25.
 //
+
 import Foundation
 import SwiftUI
 
@@ -13,6 +14,7 @@ class TaskGroupManager: ObservableObject {
     func addGroup(name: String) {
         let newGroup = TaskGroup(name: name, tasks: [])
         groups.append(newGroup)
+        sortGroups()
     }
 
     func deleteGroup(at offsets: IndexSet) {
@@ -24,33 +26,57 @@ class TaskGroupManager: ObservableObject {
             groups[index].name = newName
         }
     }
+
     func updateGroup(_ group: TaskGroup) {
         if let index = groups.firstIndex(where: { $0.id == group.id }) {
             groups[index] = group
         }
     }
 
-
     func addTask(_ task: UserTask) {
-            // at least one group, add to the first group
-            if groups.isEmpty {
-                let newGroup = TaskGroup(name: "General", tasks: [task])
-                groups.append(newGroup)
-            } else {
-                groups[0].tasks.append(task)
-            }
-            
+        guard let taskDate = task.date else {
+            print("⚠️ Task missing a date! Cannot assign to a group.")
+            return
+        }
+
+        let dateFormatter = DateFormatter()
+        dateFormatter.dateStyle = .long
+        let dateString = dateFormatter.string(from: taskDate)
+
+        if let existingIndex = groups.firstIndex(where: { $0.name == dateString }) {
+            groups[existingIndex].tasks.append(task)
+        } else {
+            let newGroup = TaskGroup(name: dateString, tasks: [task])
+            groups.append(newGroup)
+        }
+
+        sortGroups()
+        objectWillChange.send()
+    }
+
+    func allTasks() -> [UserTask] {
+        groups.flatMap { $0.tasks }
+    }
+
+    func updateTasks(for groupId: UUID, tasks: [UserTask]) {
+        if let index = groups.firstIndex(where: { $0.id == groupId }) {
+            groups[index].tasks = tasks
             objectWillChange.send()
         }
+    }
 
-        func allTasks() -> [UserTask] {
-            groups.flatMap { $0.tasks }
-        }
+    private func sortGroups() {
+        let formatter = DateFormatter()
+        formatter.dateStyle = .long
 
-        func updateTasks(for groupId: UUID, tasks: [UserTask]) {
-            if let index = groups.firstIndex(where: { $0.id == groupId }) {
-                groups[index].tasks = tasks
-                objectWillChange.send()
+        groups.sort { group1, group2 in
+            guard
+                let date1 = formatter.date(from: group1.name),
+                let date2 = formatter.date(from: group2.name)
+            else {
+                return false
             }
+            return date1 < date2
         }
     }
+}

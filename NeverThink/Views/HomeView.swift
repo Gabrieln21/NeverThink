@@ -9,7 +9,6 @@ import UserNotifications
 struct HomeView: View {
     @EnvironmentObject var todayPlanManager: TodayPlanManager
     @EnvironmentObject var groupManager: TaskGroupManager
-    @EnvironmentObject var taskManager: TaskManager
 
     @State private var selectedDate: Date = Date()
     @State private var showAddTask = false
@@ -84,7 +83,7 @@ struct HomeView: View {
 
                                         ForEach(Array(scheduledTasks.enumerated()), id: \.1.id) { index, task in
                                             NavigationLink(destination: TaskDetailView(task: task, taskIndex: index)
-                                                .environmentObject(taskManager)
+                                                .environmentObject(groupManager) // ✅ inject it here!
                                             ) {
                                                 taskRow(task) {
                                                     scheduleAlarmForCalendar(task)

@@ -54,7 +54,7 @@ class PlannerService: NSObject, CLLocationManagerDelegate {
             self.locationContinuation = continuation
             requestLocation()
 
-            // 🚨 Add a timeout fallback!
+            //timeout fallback!
             DispatchQueue.main.asyncAfter(deadline: .now() + 10) {
                 if self.locationContinuation != nil {
                     continuation.resume(throwing: NSError(domain: "PlannerService", code: 99, userInfo: [
@@ -72,7 +72,7 @@ class PlannerService: NSObject, CLLocationManagerDelegate {
             throw NSError(domain: "PlannerService", code: 0, userInfo: [NSLocalizedDescriptionKey: "API Key not configured"])
         }
 
-        // 🚀 Now actually grab the location
+        // grab the location
         let userLocation = try await getCurrentLocation()
 
         let formattedTasks = tasks.map { task in
@@ -113,7 +113,6 @@ class PlannerService: NSObject, CLLocationManagerDelegate {
 
         let currentTime = DateFormatter.localizedString(from: Date(), dateStyle: .medium, timeStyle: .short)
 
-        // ⬇️ Get the saved home address (safely)
         let homeAddress = AuthenticationManager.shared.homeAddress.isEmpty ? "Not Set" : AuthenticationManager.shared.homeAddress
 
         let prompt = """

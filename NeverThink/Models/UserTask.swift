@@ -21,6 +21,7 @@ struct UserTask: Identifiable, Codable, Hashable, Equatable {
     var timeRangeStart: Date?
     var timeRangeEnd: Date?
     var date: Date?
+    var parentRecurringId: UUID? = nil
 }
 
 
