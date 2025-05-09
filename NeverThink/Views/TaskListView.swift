@@ -28,7 +28,7 @@ struct TaskListView: View {
             .navigationTitle("Tasks")
             .toolbar {
                 ToolbarItem(placement: .primaryAction) {
-                    NavigationLink(destination: NewTaskView()) {
+                    NavigationLink(destination: NewTaskView(targetDate: Date())) {
                         Image(systemName: "plus")
                     }
                 }
@@ -36,3 +36,4 @@ struct TaskListView: View {
         }
     }
 }
+

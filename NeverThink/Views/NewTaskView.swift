@@ -11,6 +11,8 @@ enum TimeSensitivity: String, CaseIterable, Identifiable, Codable {
 struct NewTaskView: View {
     @EnvironmentObject var groupManager: TaskGroupManager
     @Environment(\.presentationMode) var presentationMode
+    
+    var targetDate: Date
 
     var targetGroupId: UUID? = nil
 
@@ -109,11 +111,40 @@ struct NewTaskView: View {
                 }
             }
             .navigationTitle("New Task")
+            .onAppear {
+                resetTimesToTargetDate()
+            }
+        }
+    }
+    
+    func resetTimesToTargetDate() {
+        let calendar = Calendar.current
+
+        func adjust(_ original: Date) -> Date {
+            let timeComponents = calendar.dateComponents([.hour, .minute], from: original)
+            return calendar.date(bySettingHour: timeComponents.hour ?? 0, minute: timeComponents.minute ?? 0, second: 0, of: targetDate) ?? targetDate
+        }
+
+        if !isTimeSensitive {
+            return
+        }
+
+        if timeSensitivityType == .startsAt {
+            startTime = adjust(startTime)
+        } else if timeSensitivityType == .dueBy {
+            exactTime = adjust(exactTime)
+        } else if timeSensitivityType == .busyFromTo {
+            startTime = adjust(startTime)
+            endTime = adjust(endTime)
         }
     }
 
+
+
+
     func saveTask() {
-        let now = Date()
+        let calendar = Calendar.current
+        let normalizedDate = calendar.startOfDay(for: targetDate)
 
         var actualExactTime: Date? = nil
         var actualStartTime: Date? = nil
@@ -158,17 +189,12 @@ struct NewTaskView: View {
             exactTime: actualExactTime,
             timeRangeStart: actualStartTime,
             timeRangeEnd: actualEndTime,
-            date: now
+            date: normalizedDate
         )
-
-        if let groupId = targetGroupId,
-           let groupIndex = groupManager.groups.firstIndex(where: { $0.id == groupId }) {
-            groupManager.groups[groupIndex].tasks.append(newTask)
-        }
 
         let dateFormatter = DateFormatter()
         dateFormatter.dateStyle = .long
-        let dateString = dateFormatter.string(from: now)
+        let dateString = dateFormatter.string(from: normalizedDate)
 
         if let dateGroupIndex = groupManager.groups.firstIndex(where: { $0.name == dateString }) {
             groupManager.groups[dateGroupIndex].tasks.append(newTask)
@@ -179,4 +205,5 @@ struct NewTaskView: View {
 
         presentationMode.wrappedValue.dismiss()
     }
+
 }

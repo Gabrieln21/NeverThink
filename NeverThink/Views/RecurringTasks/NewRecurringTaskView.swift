@@ -1,9 +1,3 @@
-//
-//  NewRecurringTaskView.swift
-//  NeverThink
-//
-//  Created by Gabriel Fernandez on 4/26/25.
-//
 import SwiftUI
 
 struct NewRecurringTaskView: View {
@@ -24,6 +18,8 @@ struct NewRecurringTaskView: View {
     @State private var isAnywhere: Bool = true
     @State private var location: String = ""
     @State private var recurringInterval: RecurringInterval = .daily
+
+    @State private var selectedWeekdays: Set<Int> = []
 
     var body: some View {
         NavigationView {
@@ -102,6 +98,38 @@ struct NewRecurringTaskView: View {
                         }
                     }
                     .pickerStyle(SegmentedPickerStyle())
+
+                    if recurringInterval == .weekly {
+                        VStack {
+                            HStack {
+                                ForEach(0..<7, id: \.self) { index in
+                                    let letters = ["S", "M", "T", "W", "T", "F", "S"]
+
+                                    Button(action: {
+                                        if selectedWeekdays.contains(index) {
+                                            selectedWeekdays.remove(index)
+                                        } else {
+                                            selectedWeekdays.insert(index)
+                                        }
+                                    }) {
+                                        Text(letters[index])
+                                            .font(.headline)
+                                            .frame(width: 32, height: 32)
+                                            .background(selectedWeekdays.contains(index) ? Color.blue : Color.clear)
+                                            .foregroundColor(selectedWeekdays.contains(index) ? .white : .blue)
+                                            .clipShape(Circle())
+                                            .overlay(
+                                                Circle()
+                                                    .stroke(Color.blue, lineWidth: 2)
+                                            )
+                                    }
+                                    .buttonStyle(PlainButtonStyle())
+                                }
+                            }
+
+                        }
+                        .padding(.top)
+                    }
                 }
 
                 Section {
@@ -137,12 +165,15 @@ struct NewRecurringTaskView: View {
                 }
             }(),
             category: .doAnywhere,
-            recurringInterval: recurringInterval
+            recurringInterval: recurringInterval,
+            selectedWeekdays: recurringInterval == .weekly ? selectedWeekdays : nil,
+            startTime: isTimeSensitive ? (timeSensitivityType == .startsAt ? startTime : nil) : nil // 👈 THIS NOW COMES LAST
         )
+
+
 
         recurringManager.addTask(newRecurringTask)
         recurringManager.generateFutureTasks(for: newRecurringTask, into: groupManager)
         presentationMode.wrappedValue.dismiss()
-
     }
 }

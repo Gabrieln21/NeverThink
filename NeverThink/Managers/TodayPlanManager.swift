@@ -9,14 +9,22 @@
 import Foundation
 
 class TodayPlanManager: ObservableObject {
-    @Published var todayPlan: [PlannedTask] = []
+    @Published var todayPlansByDate: [Date: [PlannedTask]] = [:]
 
-    func saveTodayPlan(_ tasks: [PlannedTask]) {
-        todayPlan = tasks
+    func saveTodayPlan(for date: Date, _ tasks: [PlannedTask]) {
+        let normalizedDate = Calendar.current.startOfDay(for: date)
+        todayPlansByDate[normalizedDate] = tasks
     }
 
-    func clearTodayPlan() {
-        todayPlan.removeAll()
+    func getTodayPlan(for date: Date) -> [PlannedTask] {
+        let normalizedDate = Calendar.current.startOfDay(for: date)
+        return todayPlansByDate[normalizedDate] ?? []
+    }
+
+    func clearTodayPlan(for date: Date) {
+        let normalizedDate = Calendar.current.startOfDay(for: date)
+        todayPlansByDate.removeValue(forKey: normalizedDate)
     }
 }
+
 

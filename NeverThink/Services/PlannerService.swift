@@ -54,7 +54,7 @@ class PlannerService: NSObject, CLLocationManagerDelegate {
             self.locationContinuation = continuation
             requestLocation()
 
-            //timeout fallback!
+            // Timeout fallback!
             DispatchQueue.main.asyncAfter(deadline: .now() + 10) {
                 if self.locationContinuation != nil {
                     continuation.resume(throwing: NSError(domain: "PlannerService", code: 99, userInfo: [
@@ -75,7 +75,23 @@ class PlannerService: NSObject, CLLocationManagerDelegate {
         // grab the location
         let userLocation = try await getCurrentLocation()
 
-        let formattedTasks = tasks.map { task in
+        let formattedTasks = tasks.map { task -> String in
+            let calendar = Calendar.current
+            var assumedStartTime: Date?
+
+            if task.isTimeSensitive {
+                switch task.timeSensitivityType {
+                case .startsAt:
+                    assumedStartTime = task.exactTime
+                case .dueBy:
+                    if let dueTime = task.exactTime {
+                        assumedStartTime = calendar.date(byAdding: .minute, value: -(task.duration), to: dueTime)
+                    }
+                case .busyFromTo:
+                    assumedStartTime = task.timeRangeStart
+                }
+            }
+
             var result = """
             Title: \(task.title)
             Duration: \(task.duration) minutes
@@ -83,6 +99,10 @@ class PlannerService: NSObject, CLLocationManagerDelegate {
             Time Sensitivity: \(task.isTimeSensitive ? "Yes" : "No")
             Time Sensitivity Type: \(task.isTimeSensitive ? task.timeSensitivityType.rawValue : "N/A")
             """
+
+            if let assumedStartTime = assumedStartTime {
+                result += "\nAssumed Start Time: \(DateFormatter.localizedString(from: assumedStartTime, dateStyle: .none, timeStyle: .short))"
+            }
 
             if task.timeSensitivityType == .dueBy, let time = task.exactTime {
                 result += "\nDue By: \(DateFormatter.localizedString(from: time, dateStyle: .none, timeStyle: .short))"
@@ -98,7 +118,6 @@ class PlannerService: NSObject, CLLocationManagerDelegate {
                 result += "\nBusy From: \(DateFormatter.localizedString(from: start, dateStyle: .none, timeStyle: .short)) to \(DateFormatter.localizedString(from: end, dateStyle: .none, timeStyle: .short))"
             }
 
-
             result += """
             
             Location Sensitive: \(task.isLocationSensitive ? "Yes" : "No")
@@ -108,6 +127,7 @@ class PlannerService: NSObject, CLLocationManagerDelegate {
 
             return result
         }.joined(separator: "\n\n")
+
 
         let dateString = DateFormatter.localizedString(from: date, dateStyle: .medium, timeStyle: .none)
 
@@ -135,67 +155,62 @@ class PlannerService: NSObject, CLLocationManagerDelegate {
         ---
 
         🎯 **Your Mission**: 
-        Design a fully human-like, efficient daily schedule, accounting for **travel, task timing, duration, and realistic energy pacing**.
+        Design a fully human-like, efficient daily schedule, accounting for task timing, location, travel time, and energy pacing.
+
+        - **EVERY task** must be scheduled unless it is low-priority and physically impossible to fit.
+        - **EVERY travel** between locations must be explicitly scheduled as its own task.
 
         ---
 
-        🧠 **Non-Negotiable Time Rules**:
+        🧠 **Critical Non-Negotiable Time Rules**:
+
+        - ⏰ **RESPECT ALL GIVEN TIMES**:
+          - Tasks with a specified **start time**, **due time**, or **busy time window** must **strictly occur at those times**.
+          - **DO NOT modify, move, or adjust these times** unless absolutely necessary due to unavoidable conflicts.
+          - **If you must adjust a time-sensitive task, you MUST clearly explain why in the "reason" field.**
 
         - **Starts-At Tasks**:
-          - Must begin **EXACTLY** at their specified start time.
-          - **NO** early starts or late starts allowed.
-          - Insert travel **before** if needed to guarantee arrival on time.
+          - Must start **EXACTLY** at their designated time.
+          - Insert necessary travel beforehand to guarantee arrival.
 
         - **Due-By Tasks**:
-          - Must be **COMPLETED before** the due-by time.
-          - Plan enough time to finish without rushing.
+          - Must be **completed before** the due-by time without rushing.
 
         - **Busy From-To Tasks**:
-          - Must **fully fit within** their available time window (start and end).
-          - No scheduling outside of this window.
+          - Must **fully fit inside** their specified time window without overlapping.
 
         - **Duration Integrity**:
-          - Every task's full duration must fit inside its assigned block. No unrealistic squeezing or cutting short unless absolutely necessary (and you must explain it).
+          - Every task must fit its full duration unless absolutely impossible — if shortened, explain why in the "reason".
 
         ---
 
-        🚕 **Realistic Travel Scheduling**:
+        🚕 **Travel Scheduling Requirements**:
 
-        - Travel between physical locations must be **its own scheduled task**.
-        - Travel times must be realistic, assuming:
-          - Walking ≈ 3 mph
-          - Driving ≈ 35–45 mph (urban)
-          - Public Transit: reasonable waits (normal city conditions)
-        - ⚡ **Never double or overinflate travel times**. Estimate moderately, not worst-case.
-        - Allow enough buffer to **arrive on time without rushing**.
-
-        ---
-
-        🕒 **Time Format**:
-
-        - Always use **12-hour AM/PM** format (e.g., "08:45 AM", "3:15 PM").
+        - Travel between locations must be **explicitly scheduled** as its own task.
+        - This includes **travel from starting location to first task**.
+        - Estimate realistic travel times (Walking ≈ 3 mph, Driving ≈ 35–45 mph, Public Transit = normal waits).
+        - ⚡ **Never overinflate travel times**.
 
         ---
 
         📈 **Energy and Flow Management**:
 
-        - Insert **Free Time** blocks when there is an open gap of **≥30 minutes** between tasks.
-          - Title: `"Free Time"`
-          - Notes: Encourage rest, personal errands, recharge, or reflection.
-          - Reason: Maintain healthy energy pacing throughout the day.
+        - Insert **Free Time** blocks for any open gap of **≥30 minutes**.
+        - Free Time blocks are important for pacing, resting, and maintaining productivity.
 
         ---
 
         ⚡ **Conflict Handling**:
 
-        - **Always prioritize** urgent and time-sensitive tasks.
-        - Drop, delay, or shorten low-priority leisure tasks as needed — **clearly explain why** in the "reason" field.
+        - Only **low-priority, non-urgent tasks** may be dropped if absolutely no room exists.
+        - **EVERY task and travel block must have a "reason" field explaining its importance, purpose, or why it happens at that time**.
+        - **NO task, travel, or free time block should be missing a "reason".**
 
         ---
 
-        ✅ **Output Format**:
+        ✅ **Output Format (Strict)**:
 
-        Return ONLY a raw JSON array like:
+        You must return ONLY a raw JSON array like:
 
         [
           {
@@ -211,16 +226,26 @@ class PlannerService: NSObject, CLLocationManagerDelegate {
             "title": "Dentist Appointment",
             "notes": "Location: 123 Main St. Urgency: High.",
             "reason": "Important health-related appointment prioritized early."
+          },
+          {
+            "start_time": "09:00 AM",
+            "end_time": "09:30 AM",
+            "title": "Free Time",
+            "notes": "No scheduled tasks during this window.",
+            "reason": "Allowing time to rest and recharge between activities."
           }
         ]
 
-        🚫 No markdown, no explanations, no headings. Only the JSON array.
+        🚫 **NO markdown formatting, NO explanations outside the JSON array. Only the raw JSON array.**
 
         ---
 
         Tasks:
         \(formattedTasks)
         """
+
+
+
 
 
 
@@ -255,10 +280,10 @@ class PlannerService: NSObject, CLLocationManagerDelegate {
 
         print("🧠 RAW GPT RESPONSE:\n\(content)")
 
-        return try Self.parseSchedule(from: content)
+        return try Self.parseSchedule(from: content, selectedDate: date)
     }
 
-    private static func parseSchedule(from response: String) throws -> [PlannedTask] {
+    private static func parseSchedule(from response: String, selectedDate: Date) throws -> [PlannedTask] {
         var cleanedResponse = response.trimmingCharacters(in: .whitespacesAndNewlines)
 
         if cleanedResponse.hasPrefix("```") {
@@ -278,7 +303,18 @@ class PlannerService: NSObject, CLLocationManagerDelegate {
         let data = Data(jsonString.utf8)
 
         do {
-            return try JSONDecoder().decode([PlannedTask].self, from: data)
+            let rawTasks = try JSONDecoder().decode([PlannedTask].self, from: data)
+
+            let normalizedDate = Calendar.current.startOfDay(for: selectedDate)
+
+            let updatedTasks = rawTasks.map { rawTask in
+                var task = rawTask
+                task.date = normalizedDate // 🔥
+                return task
+            }
+
+            return updatedTasks
+
         } catch {
             throw NSError(domain: "PlannerService", code: 3, userInfo: [
                 NSLocalizedDescriptionKey: "Failed to decode JSON: \(error.localizedDescription)\nJSON String: \(jsonString)"

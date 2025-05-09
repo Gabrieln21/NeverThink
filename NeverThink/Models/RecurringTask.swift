@@ -18,7 +18,7 @@ enum RecurringInterval: String, CaseIterable, Identifiable, Codable {
 struct RecurringTask: Identifiable, Codable {
     var id: UUID = UUID()
     var title: String
-    var duration: Int // minutes
+    var duration: Int
     var isTimeSensitive: Bool
     var timeSensitivityType: TimeSensitivity
     var exactTime: Date?
@@ -28,6 +28,11 @@ struct RecurringTask: Identifiable, Codable {
     var location: String?
     var category: TaskCategory
     var recurringInterval: RecurringInterval
+    var selectedWeekdays: Set<Int>? = nil
+    var startTime: Date? = nil
+
+
+
 }
 
 

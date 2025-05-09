@@ -34,25 +34,24 @@ class TaskGroupManager: ObservableObject {
     }
 
     func addTask(_ task: UserTask) {
-        guard let taskDate = task.date else {
-            print("⚠️ Task missing a date! Cannot assign to a group.")
-            return
-        }
-
+        guard let taskDate = task.date else { return }
+        
         let dateFormatter = DateFormatter()
         dateFormatter.dateStyle = .long
         let dateString = dateFormatter.string(from: taskDate)
 
-        if let existingIndex = groups.firstIndex(where: { $0.name == dateString }) {
-            groups[existingIndex].tasks.append(task)
+        if let index = groups.firstIndex(where: { $0.name == dateString }) {
+            // Group for this date already exists
+            groups[index].tasks.append(task)
         } else {
+            // Group does not exist
             let newGroup = TaskGroup(name: dateString, tasks: [task])
             groups.append(newGroup)
         }
-
-        sortGroups()
+        groups.sort { $0.name < $1.name }
         objectWillChange.send()
     }
+
 
     func allTasks() -> [UserTask] {
         groups.flatMap { $0.tasks }

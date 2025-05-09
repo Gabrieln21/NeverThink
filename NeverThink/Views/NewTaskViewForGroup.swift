@@ -1,8 +1,8 @@
 //
 //  NewTaskViewForGroup.swift
-//  NaverThink
+//  NeverThink
 //
-//  Created by Gabriel Fernandez on 4/25/25.
+//  Created by Gabriel Hernandez on 4/25/25.
 //
 
 import SwiftUI

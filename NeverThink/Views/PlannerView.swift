@@ -10,6 +10,7 @@ struct PlannerView: View {
     @State private var errorMessage: String?
     @State private var showTransportModeSheet: Bool = false
     @State private var selectedTransportMode: String = ""
+    @State private var selectedDate: Date = Date()
 
     var body: some View {
         NavigationView {
@@ -29,7 +30,6 @@ struct PlannerView: View {
                             ForEach(generatedPlan) { task in
                                 TaskCardView(task: task)
                             }
-
                             acceptPlanButton
                         } else {
                             emptyState
@@ -58,15 +58,38 @@ struct PlannerView: View {
                 Text(group.name).tag(Optional(group))
             }
         }
+        .onChange(of: selectedGroup) { newGroup in
+            if let group = newGroup {
+                let formatter = DateFormatter()
+                formatter.dateStyle = .long
+                if let parsedDate = formatter.date(from: group.name) {
+                    selectedDate = parsedDate
+                    print("📅 Updated selectedDate based on group: \(selectedDate)")
+                } else {
+                    print("⚠️ Failed to parse date from group name: \(group.name)")
+                }
+            }
+        }
         .pickerStyle(MenuPickerStyle())
         .padding()
     }
 
+
     var acceptPlanButton: some View {
         Button(action: {
-            todayPlanManager.saveTodayPlan(generatedPlan)
+            let normalizedDate = Calendar.current.startOfDay(for: selectedDate)
+
+            print("📅 Saving AI plan for selected date: \(normalizedDate)")
+
+            let updatedTasks = generatedPlan.map { task -> PlannedTask in
+                var updatedTask = task
+                updatedTask.date = normalizedDate
+                return updatedTask
+            }
+
+            todayPlanManager.saveTodayPlan(for: normalizedDate, updatedTasks)
             generatedPlan = []
-            errorMessage = "✅ Plan saved for today!"
+            errorMessage = "✅ Plan saved for \(normalizedDate.formatted(date: .abbreviated, time: .omitted))!"
         }) {
             Text("✅ Accept This Plan")
                 .font(.headline)
@@ -78,6 +101,8 @@ struct PlannerView: View {
         }
         .padding([.horizontal, .bottom])
     }
+
+
 
     var generatePlanButton: some View {
         Button(action: {
@@ -149,12 +174,22 @@ struct PlannerView: View {
 
         Task {
             do {
-                let plan = try await PlannerService.shared.generatePlan(
+                let rawPlan = try await PlannerService.shared.generatePlan(
                     from: group.tasks,
-                    for: Date(),
+                    for: selectedDate,
                     transportMode: selectedTransportMode
                 )
-                self.generatedPlan = plan
+
+                // correct date when parsing
+                let normalizedSelectedDate = Calendar.current.startOfDay(for: selectedDate)
+
+                self.generatedPlan = rawPlan.map { task in
+                    var updatedTask = task
+                    updatedTask.date = normalizedSelectedDate
+                    return updatedTask
+                }
+
+                
             } catch {
                 self.errorMessage = error.localizedDescription
                 print("⚠️ Error generating plan: \(error)")
@@ -162,6 +197,7 @@ struct PlannerView: View {
             isLoading = false
         }
     }
+
 }
 
 struct TaskCardView: View {

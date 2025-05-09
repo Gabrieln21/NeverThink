@@ -27,15 +27,32 @@ class RecurringTaskManager: ObservableObject {
         tasks.remove(atOffsets: offsets)
     }
 }
+
 extension RecurringTaskManager {
     func generateFutureTasks(for recurringTask: RecurringTask, into groupManager: TaskGroupManager) {
         let calendar = Calendar.current
         let today = Date()
-        
+
         var currentDate = today
-        let iterations = 60 // Generate 2 months of future tasks !!EDIT THIS!!
-        
+        let iterations = 60 // About 2 months !Potentially select!!
+
         for _ in 0..<iterations {
+            let weekday = calendar.component(.weekday, from: currentDate) - 1 // Sunday = 0
+
+            if recurringTask.recurringInterval == .weekly {
+                if !(recurringTask.selectedWeekdays?.contains(weekday) ?? false) {
+                    currentDate = calendar.date(byAdding: .day, value: 1, to: currentDate)!
+                    continue
+                }
+            }
+
+            
+            func adjustTime(_ time: Date?) -> Date? {
+                guard let time = time else { return nil }
+                let components = calendar.dateComponents([.hour, .minute], from: time)
+                return calendar.date(bySettingHour: components.hour ?? 0, minute: components.minute ?? 0, second: 0, of: currentDate)
+            }
+
             let newTask = UserTask(
                 id: UUID(),
                 title: recurringTask.title,
@@ -47,59 +64,23 @@ extension RecurringTaskManager {
                 category: recurringTask.category,
                 timeSensitivityType: recurringTask.timeSensitivityType,
                 exactTime: {
-                    if recurringTask.isTimeSensitive && recurringTask.timeSensitivityType != .busyFromTo {
-                        // Use same exact time
-                        return calendar.date(
-                            bySettingHour: calendar.component(.hour, from: recurringTask.exactTime ?? Date()),
-                            minute: calendar.component(.minute, from: recurringTask.exactTime ?? Date()),
-                            second: 0,
-                            of: currentDate
-                        )
-                    } else {
-                        return nil
+                    if recurringTask.isTimeSensitive {
+                        if recurringTask.timeSensitivityType == .startsAt {
+                            return adjustTime(recurringTask.startTime)
+                        } else if recurringTask.timeSensitivityType == .dueBy {
+                            return adjustTime(recurringTask.exactTime)
+                        }
                     }
+                    return nil
                 }(),
-                timeRangeStart: {
-                    if recurringTask.isTimeSensitive && recurringTask.timeSensitivityType == .busyFromTo {
-                        return calendar.date(
-                            bySettingHour: calendar.component(.hour, from: recurringTask.timeRangeStart ?? Date()),
-                            minute: calendar.component(.minute, from: recurringTask.timeRangeStart ?? Date()),
-                            second: 0,
-                            of: currentDate
-                        )
-                    } else {
-                        return nil
-                    }
-                }(),
-                timeRangeEnd: {
-                    if recurringTask.isTimeSensitive && recurringTask.timeSensitivityType == .busyFromTo {
-                        return calendar.date(
-                            bySettingHour: calendar.component(.hour, from: recurringTask.timeRangeEnd ?? Date()),
-                            minute: calendar.component(.minute, from: recurringTask.timeRangeEnd ?? Date()),
-                            second: 0,
-                            of: currentDate
-                        )
-                    } else {
-                        return nil
-                    }
-                }(),
+                timeRangeStart: recurringTask.isTimeSensitive && recurringTask.timeSensitivityType == .busyFromTo ? adjustTime(recurringTask.timeRangeStart) : nil,
+                timeRangeEnd: recurringTask.isTimeSensitive && recurringTask.timeSensitivityType == .busyFromTo ? adjustTime(recurringTask.timeRangeEnd) : nil,
                 date: currentDate
             )
-            
+
             groupManager.addTask(newTask)
-            
-            // Move to next day/week/month
-            switch recurringTask.recurringInterval {
-            case .daily:
-                currentDate = calendar.date(byAdding: .day, value: 1, to: currentDate)!
-            case .weekly:
-                currentDate = calendar.date(byAdding: .weekOfYear, value: 1, to: currentDate)!
-            case .monthly:
-                currentDate = calendar.date(byAdding: .month, value: 1, to: currentDate)!
-            case .yearly:
-                currentDate = calendar.date(byAdding: .year, value: 1, to: currentDate)!
-            }
+
+            currentDate = calendar.date(byAdding: .day, value: 1, to: currentDate)!
         }
     }
-
 }
