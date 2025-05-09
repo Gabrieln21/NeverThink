@@ -1,13 +1,7 @@
-//
-//  TaskDetailView.swift
-//  NeverThink
-//
-//  Created by Gabriel Fernandez on 4/25/25.
-//
 import SwiftUI
 
 struct TaskDetailView: View {
-    @EnvironmentObject var taskManager: TaskManager
+    @EnvironmentObject var groupManager: TaskGroupManager
     @Environment(\.presentationMode) var presentationMode
 
     var task: UserTask
@@ -42,9 +36,7 @@ struct TaskDetailView: View {
                     }
                 }
 
-                HStack {
-                    Text("Urgency: \(task.urgency.rawValue)")
-                }
+                Text("Urgency: \(task.urgency.rawValue)")
             } header: {
                 Text("Task Info")
             }
@@ -73,14 +65,22 @@ struct TaskDetailView: View {
         }
         .navigationTitle("Task Details")
         .toolbar {
-            NavigationLink(destination: EditTaskView(taskIndex: taskIndex, task: task)) {
-                Text("Edit")
+            NavigationLink(destination: EditTaskView(taskIndex: taskIndex, task: task)
+                .environmentObject(groupManager)
+            ) {
+                Image(systemName: "pencil")
             }
         }
     }
 
     func deleteTask() {
-        taskManager.tasks.remove(at: taskIndex)
+        if let todayGroupIndex = groupManager.groups.firstIndex(where: { group in
+            group.tasks.contains(where: { $0.id == task.id })
+        }),
+           let taskIndexInGroup = groupManager.groups[todayGroupIndex].tasks.firstIndex(where: { $0.id == task.id }) {
+            groupManager.groups[todayGroupIndex].tasks.remove(at: taskIndexInGroup)
+        }
+
         presentationMode.wrappedValue.dismiss()
     }
 }

@@ -5,11 +5,12 @@
 //  Created by Gabriel Fernandez on 4/25/25.
 //
 
+
 import SwiftUI
 
 @main
 struct NeverThinkApp: App {
-    let persistenceController = PersistenceController.shared
+    @StateObject private var authManager = AuthenticationManager()
     @StateObject private var groupManager = TaskGroupManager()
     @StateObject private var todayPlanManager = TodayPlanManager()
 
@@ -19,9 +20,20 @@ struct NeverThinkApp: App {
 
     var body: some Scene {
         WindowGroup {
-            ContentView()
-                .environmentObject(groupManager)
-                .environmentObject(todayPlanManager)
+            if !authManager.isSignedIn {
+                AuthView()
+                    .environmentObject(authManager)
+            } else if !authManager.hasSetHomeAddress {
+                HomeAddressView()
+                    .environmentObject(authManager)
+            } else {
+                ContentView()
+                    .environmentObject(authManager)
+                    .environmentObject(groupManager)
+                    .environmentObject(todayPlanManager)
+            }
         }
     }
 }
+
+

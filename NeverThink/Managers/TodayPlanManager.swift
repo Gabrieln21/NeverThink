@@ -5,6 +5,7 @@
 //  Created by Gabriel Fernandez on 4/25/25.
 //
 
+
 import Foundation
 
 class TodayPlanManager: ObservableObject {

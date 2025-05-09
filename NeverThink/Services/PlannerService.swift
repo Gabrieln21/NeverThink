@@ -72,6 +72,7 @@ class PlannerService: NSObject, CLLocationManagerDelegate {
             throw NSError(domain: "PlannerService", code: 0, userInfo: [NSLocalizedDescriptionKey: "API Key not configured"])
         }
 
+        // 🚀 Now actually grab the location
         let userLocation = try await getCurrentLocation()
 
         let formattedTasks = tasks.map { task in
@@ -112,95 +113,115 @@ class PlannerService: NSObject, CLLocationManagerDelegate {
 
         let currentTime = DateFormatter.localizedString(from: Date(), dateStyle: .medium, timeStyle: .short)
 
+        // ⬇️ Get the saved home address (safely)
+        let homeAddress = AuthenticationManager.shared.homeAddress.isEmpty ? "Not Set" : AuthenticationManager.shared.homeAddress
+
         let prompt = """
-        You are an intelligent personal assistant helping a real person plan their entire day on \(dateString).
+        You are an intelligent personal assistant helping a real person plan their day on \(dateString).
 
-        Their **starting location** is approximately Latitude: \(userLocation.latitude), Longitude: \(userLocation.longitude).
-        They are traveling by **\(transportMode)**. The current time is **\(currentTime)**.
+        - Their **starting location** is approximately Latitude: \(userLocation.latitude), Longitude: \(userLocation.longitude).
+        - Their **home address** is "\(homeAddress)" — tasks labeled "Home" happen here.
+        - Their method of transportation is **\(transportMode)**.
+        - The current time is **\(currentTime)**.
 
-        You are given a list of tasks with varying:
+        You are given a list of tasks with these attributes:
         - Duration
-        - Urgency
-        - Time constraints (due-by, start time, or time range)
+        - Urgency level
+        - Time sensitivity (due-by, starts-at, or busy range)
         - Location sensitivity:
-          - "Home" ➔ The user is already at home, no travel needed.
-          - "Anywhere" ➔ Flexible location, no travel needed.
-          - Specific Address ➔ Must **travel** to a specific place.
-
-        🎯 Your job: Build a **realistic full-day schedule** including:
-        ✅ All tasks
-        ✅ Travel time between tasks if needed
-        ✅ Initial travel time from the user's starting location to the first task if needed
+          - "Home" ➔ Happens at home address.
+          - "Anywhere" ➔ Can be completed wherever the user currently is, unless the task naturally implies a move (e.g., gym workout).
+          - Specific Address ➔ Requires traveling to that location.
 
         ---
 
-        You must:
-        - Begin by choosing the first task based on urgency, time, and location.
-        - **If the first task is not "Home" or "Anywhere"**, insert a travel event from the user's current location.
-        - Insert **travel events between tasks** if the previous and next tasks are at different locations (excluding "Anywhere" tasks).
-        - Calculate travel time using:
-          - Walking: ~3 mph
-          - Driving: ~25–40 mph (urban)
-          - Public Transit: reasonable wait and buffer
-        - Respect time-sensitive constraints (due-by, start times, ranges).
-        - Spread out work to prevent burnout (avoid back-to-back without breaks).
-        - Prioritize urgent tasks. Shorten, delay, or skip lower-priority tasks if needed.
-        - Make smart, human-like decisions for conflicts — act like a great personal assistant.
+        🎯 **Your Mission**: 
+        Design a fully human-like, efficient daily schedule, accounting for **travel, task timing, duration, and realistic energy pacing**.
 
         ---
 
-        🚗 **Travel events must:**
-        - Be titled: "Travel to [Task Title or Location]"
-        - Include:
-          - Estimated travel time
-          - Clear start_time and end_time
-          - Notes: travel details (e.g., "20 min drive to dentist")
-          - Reason: why it was scheduled at that time
+        🧠 **Non-Negotiable Time Rules**:
 
-        🕒 **Time format:** Always **12-hour AM/PM** — e.g., "08:45 AM", "1:15 PM".
+        - **Starts-At Tasks**:
+          - Must begin **EXACTLY** at their specified start time.
+          - **NO** early starts or late starts allowed.
+          - Insert travel **before** if needed to guarantee arrival on time.
 
-        ---
+        - **Due-By Tasks**:
+          - Must be **COMPLETED before** the due-by time.
+          - Plan enough time to finish without rushing.
 
-        ⚡ Special location rules:
-        - "Home" tasks do not require travel if already at home.
-        - "Anywhere" tasks do not require travel and can be inserted flexibly.
-        - Specific addresses require travel to the listed address.
+        - **Busy From-To Tasks**:
+          - Must **fully fit within** their available time window (start and end).
+          - No scheduling outside of this window.
 
-        ---
-
-        ⚠️ If two tasks overlap, prioritize based on urgency and strictness of time constraints.
-        - Clearly explain any dropped, delayed, or shortened tasks inside the "reason" field.
+        - **Duration Integrity**:
+          - Every task's full duration must fit inside its assigned block. No unrealistic squeezing or cutting short unless absolutely necessary (and you must explain it).
 
         ---
 
-        ✅ Output format: **Only a raw JSON array**, like:
+        🚕 **Realistic Travel Scheduling**:
+
+        - Travel between physical locations must be **its own scheduled task**.
+        - Travel times must be realistic, assuming:
+          - Walking ≈ 3 mph
+          - Driving ≈ 35–45 mph (urban)
+          - Public Transit: reasonable waits (normal city conditions)
+        - ⚡ **Never double or overinflate travel times**. Estimate moderately, not worst-case.
+        - Allow enough buffer to **arrive on time without rushing**.
+
+        ---
+
+        🕒 **Time Format**:
+
+        - Always use **12-hour AM/PM** format (e.g., "08:45 AM", "3:15 PM").
+
+        ---
+
+        📈 **Energy and Flow Management**:
+
+        - Insert **Free Time** blocks when there is an open gap of **≥30 minutes** between tasks.
+          - Title: `"Free Time"`
+          - Notes: Encourage rest, personal errands, recharge, or reflection.
+          - Reason: Maintain healthy energy pacing throughout the day.
+
+        ---
+
+        ⚡ **Conflict Handling**:
+
+        - **Always prioritize** urgent and time-sensitive tasks.
+        - Drop, delay, or shorten low-priority leisure tasks as needed — **clearly explain why** in the "reason" field.
+
+        ---
+
+        ✅ **Output Format**:
+
+        Return ONLY a raw JSON array like:
 
         [
           {
             "start_time": "08:00 AM",
-            "end_time": "08:30 AM",
+            "end_time": "08:15 AM",
             "title": "Travel to Dentist",
-            "notes": "30 min drive to dentist. Leaving from current location.",
-            "reason": "First task of the day, ensuring arrival by 9:00 AM."
+            "notes": "15 min drive to 123 Main St.",
+            "reason": "Leaving early to ensure punctual arrival for 8:30 AM appointment."
           },
           {
-            "start_time": "09:00 AM",
-            "end_time": "09:30 AM",
+            "start_time": "08:30 AM",
+            "end_time": "09:00 AM",
             "title": "Dentist Appointment",
             "notes": "Location: 123 Main St. Urgency: High.",
-            "reason": "Prioritized health appointment early in the day."
+            "reason": "Important health-related appointment prioritized early."
           }
         ]
 
-        ---
+        🚫 No markdown, no explanations, no headings. Only the JSON array.
 
-        🚫 DO NOT include introductions, markdown, explanations, or anything besides the JSON array.
+        ---
 
         Tasks:
         \(formattedTasks)
         """
-
-
 
 
 

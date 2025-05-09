@@ -15,7 +15,8 @@ struct NewTaskView: View {
     var targetGroupId: UUID? = nil
 
     @State private var title: String = ""
-    @State private var duration: Int = 30
+    @State private var durationHours: String = "0"
+    @State private var durationMinutes: String = "30"
     @State private var isTimeSensitive: Bool = false
     @State private var timeSensitivityType: TimeSensitivity = .startsAt
     @State private var exactTime: Date = Date()
@@ -23,9 +24,8 @@ struct NewTaskView: View {
     @State private var endTime: Date = Date()
     @State private var urgency: UrgencyLevel = .medium
 
-    // 🏠 New Location States
     @State private var isAtHome: Bool = true
-    @State private var isAnywhere: Bool = true
+    @State private var isAnywhere: Bool = false
     @State private var location: String = ""
 
     var body: some View {
@@ -34,10 +34,19 @@ struct NewTaskView: View {
                 Section(header: Text("Task Info")) {
                     TextField("Title", text: $title)
 
-                    Stepper(value: $duration, in: 5...240, step: 5) {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Duration:")
                         HStack {
-                            Image(systemName: "clock")
-                            Text("Duration: \(duration) minutes")
+                            TextField("Hours", text: $durationHours)
+                                .keyboardType(.numberPad)
+                                .frame(width: 60)
+                                .textFieldStyle(.roundedBorder)
+                            Text("hours")
+                            TextField("Minutes", text: $durationMinutes)
+                                .keyboardType(.numberPad)
+                                .frame(width: 60)
+                                .textFieldStyle(.roundedBorder)
+                            Text("minutes")
                         }
                     }
 
@@ -46,8 +55,7 @@ struct NewTaskView: View {
                     if isTimeSensitive {
                         Picker("Time Sensitivity", selection: $timeSensitivityType) {
                             ForEach(TimeSensitivity.allCases) { type in
-                                Text(type.rawValue)
-                                    .tag(type)
+                                Text(type.rawValue).tag(type)
                             }
                         }
                         .pickerStyle(SegmentedPickerStyle())
@@ -65,12 +73,15 @@ struct NewTaskView: View {
                         .id(timeSensitivityType)
                     }
 
-                    Picker("Urgency", selection: $urgency) {
-                        ForEach(UrgencyLevel.allCases, id: \.self) {
-                            Text($0.rawValue)
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Task Importance:")
+                        Picker("", selection: $urgency) {
+                            ForEach(UrgencyLevel.allCases, id: \.self) {
+                                Text($0.rawValue)
+                            }
                         }
+                        .pickerStyle(SegmentedPickerStyle())
                     }
-                    .pickerStyle(SegmentedPickerStyle())
                 }
 
                 Section(header: Text("Location")) {
@@ -80,7 +91,7 @@ struct NewTaskView: View {
                         Toggle("🛫 Anywhere?", isOn: $isAnywhere)
 
                         if !isAnywhere {
-                            TextField("Enter address", text: $location)
+                            TextField("Enter Address", text: $location)
                         }
                     }
                 }
@@ -94,7 +105,7 @@ struct NewTaskView: View {
                             Spacer()
                         }
                     }
-                    .disabled(title.isEmpty || (!isAtHome && !isAnywhere && location.isEmpty)) // 🧠 Prevent saving if required location missing
+                    .disabled(title.isEmpty || (!isAtHome && !isAnywhere && location.isEmpty))
                 }
             }
             .navigationTitle("New Task")
@@ -124,13 +135,15 @@ struct NewTaskView: View {
             }
         }
 
+        let totalDurationMinutes = (Int(durationHours) ?? 0) * 60 + (Int(durationMinutes) ?? 0)
+
         let newTask = UserTask(
             id: UUID(),
             title: title,
-            duration: duration,
+            duration: totalDurationMinutes,
             isTimeSensitive: isTimeSensitive,
             urgency: urgency,
-            isLocationSensitive: !isAtHome, // 🏠 Only true if not at home
+            isLocationSensitive: !isAtHome,
             location: {
                 if isAtHome {
                     return "Home"
@@ -140,7 +153,7 @@ struct NewTaskView: View {
                     return location.isEmpty ? nil : location
                 }
             }(),
-            category: .doAnywhere, // 🔥 Category stays "do anywhere" — no need for picker anymore
+            category: .doAnywhere,
             timeSensitivityType: sensitivityTypeForSaving,
             exactTime: actualExactTime,
             timeRangeStart: actualStartTime,
