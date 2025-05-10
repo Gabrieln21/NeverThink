@@ -25,7 +25,7 @@ struct RecurringTask: Identifiable, Codable {
     var timeRangeStart: Date?
     var timeRangeEnd: Date?
     var urgency: UrgencyLevel
-    var location: String?
+    var location: String? // "Home", "Anywhere", or custom address
     var category: TaskCategory
     var recurringInterval: RecurringInterval
     var selectedWeekdays: Set<Int>? = nil

@@ -1,6 +1,7 @@
 import SwiftUI
 
 enum TimeSensitivity: String, CaseIterable, Identifiable, Codable {
+    case none = "None"
     case dueBy = "Due by"
     case startsAt = "Starts at"
     case busyFromTo = "Busy from-to"
@@ -163,7 +164,10 @@ struct NewTaskView: View {
                 actualStartTime = startTime
                 actualEndTime = endTime
                 sensitivityTypeForSaving = .busyFromTo
+            case .none:
+                sensitivityTypeForSaving = .none
             }
+
         }
 
         let totalDurationMinutes = (Int(durationHours) ?? 0) * 60 + (Int(durationMinutes) ?? 0)

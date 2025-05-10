@@ -2,7 +2,7 @@
 //  NewTaskViewForGroup.swift
 //  NeverThink
 //
-//  Created by Gabriel Hernandez on 4/25/25.
+//  Created by Gabriel Fernandez on 4/25/25.
 //
 
 import SwiftUI
@@ -41,7 +41,7 @@ struct NewTaskViewForGroup: View {
                             Text(type.rawValue)
                         }
                     }
-                    .pickerStyle(SegmentedPickerStyle())
+                    .pickerStyle(SegmentedPickerStyle()) // <--- this makes the 3 buttons appear side by side
 
                     if timeSensitivityType == .dueBy {
                         DatePicker("Due by", selection: $exactTime, displayedComponents: [.hourAndMinute])
@@ -107,8 +107,11 @@ struct NewTaskViewForGroup: View {
                 actualStartTime = startTime
                 actualEndTime = endTime
                 sensitivityTypeForSaving = .busyFromTo
+            case .none:
+                break
             }
         }
+
 
         let newTask = UserTask(
             id: UUID(),

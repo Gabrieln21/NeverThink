@@ -18,7 +18,8 @@ struct HomeView: View {
     @State private var dateForNewTask: Date? = nil
     @State private var scrollOffset: CGFloat = 0
     @State private var showOriginalTasks: Bool = false
-
+    @State private var completedTasks: [UserTask] = []
+    @State private var showConfetti: Bool = false
 
     private var todayTasks: [UserTask] {
         groupManager.allTasks().filter { task in
@@ -31,9 +32,9 @@ struct HomeView: View {
         todayTasks.filter { task in
             task.isTimeSensitive && (task.exactTime != nil || (task.timeRangeStart != nil && task.timeRangeEnd != nil))
         }
-        .sorted(by: { lhs, rhs in
+        .sorted { lhs, rhs in
             (lhs.exactTime ?? lhs.timeRangeStart ?? Date()) < (rhs.exactTime ?? rhs.timeRangeStart ?? Date())
-        })
+        }
     }
 
     private var unscheduledTasks: [UserTask] {
@@ -57,11 +58,7 @@ struct HomeView: View {
 
                             if !todaysAIPlan.isEmpty {
                                 DisclosureGroup(isExpanded: $showOriginalTasks) {
-                                    originalTasksSection(
-                                        scheduledTasks: scheduledTasks,
-                                        unscheduledTasks: unscheduledTasks,
-                                        groupManager: groupManager
-                                    )
+                                    originalTasksSection
                                 } label: {
                                     Text("📝 Show Original Tasks")
                                         .font(.headline)
@@ -69,18 +66,13 @@ struct HomeView: View {
                                 }
                                 .padding()
                             } else {
-                                originalTasksSection(
-                                    scheduledTasks: scheduledTasks,
-                                    unscheduledTasks: unscheduledTasks,
-                                    groupManager: groupManager
-                                )
+                                originalTasksSection
                             }
                         }
                         .padding(.top)
                         .background(
                             GeometryReader { proxy in
-                                Color.clear
-                                    .preference(key: ScrollOffsetKey.self, value: -proxy.frame(in: .named("scroll")).origin.y)
+                                Color.clear.preference(key: ScrollOffsetKey.self, value: -proxy.frame(in: .named("scroll")).origin.y)
                             }
                         )
                     }
@@ -90,41 +82,73 @@ struct HomeView: View {
                     scrollOffset = value
                 }
                 .toolbar {
-                    toolbarItems
+                    ToolbarItemGroup(placement: .navigationBarLeading) {
+                        NavigationLink(destination: TaskExpansionView().environmentObject(groupManager)) {
+                            Image(systemName: "wand.and.stars.inverse")
+                        }
+                    }
+                    
+                    ToolbarItemGroup(placement: .navigationBarTrailing) {
+                        Button(action: {
+                            dateForNewTask = selectedDate
+                        }) {
+                            Image(systemName: "plus")
+                        }
+
+                        NavigationLink(destination: PlannerView()
+                            .environmentObject(groupManager)
+                            .environmentObject(todayPlanManager)) {
+                                Image(systemName: "sparkles")
+                        }
+                    }
                 }
+
                 .sheet(item: $dateForNewTask) { date in
                     NewTaskView(targetDate: date)
                         .environmentObject(groupManager)
                 }
+                .overlay(
+                    Group {
+                        if showConfetti {
+                            Text("🎉")
+                                .font(.system(size: 60))
+                                .transition(.scale)
+                                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                                .zIndex(1)
+                                .animation(.spring(response: 0.5, dampingFraction: 0.6), value: showConfetti)
+                        }
+                    }
+                )
             }
         }
     }
 
-
     private var calendarHeader: some View {
         VStack {
-            DatePicker(
-                "Select a day",
-                selection: $selectedDate,
-                displayedComponents: [.date]
-            )
-            .datePickerStyle(.graphical)
-            .padding()
+            DatePicker("Select a day", selection: $selectedDate, displayedComponents: [.date])
+                .datePickerStyle(.graphical)
+                .padding()
         }
         .background(Color.white)
         .opacity(scrollOffset < 50 ? 1 : 0)
         .animation(.easeInOut(duration: 0.25), value: scrollOffset)
     }
 
+    private func completeAIPlanTask(_ task: PlannedTask) {
+        todayPlanManager.markTaskCompleted(task) // mark as completed
+        triggerConfetti()
+    }
+
     private func aiPlanSection(todaysAIPlan: [PlannedTask]) -> some View {
-        Group {
-            if !todaysAIPlan.isEmpty {
+        let activeAIPlans = todaysAIPlan.filter { !$0.isCompleted } // Only show active ones
+        return Group {
+            if !activeAIPlans.isEmpty {
                 VStack(alignment: .leading, spacing: 12) {
                     Text("🎯 AI Plan for This Day")
                         .font(.headline)
                         .padding(.horizontal)
 
-                    ForEach(todaysAIPlan) { task in
+                    ForEach(activeAIPlans) { task in
                         taskCardView(
                             title: task.title,
                             subtitle: "\(task.start_time) - \(task.end_time)",
@@ -132,14 +156,20 @@ struct HomeView: View {
                         ) {
                             scheduleAlarmForAI(task)
                         }
+                        .swipeActions(edge: .trailing) {
+                            Button(role: .destructive) {
+                                completeAIPlanTask(task)
+                            } label: {
+                                Label("Complete", systemImage: "checkmark")
+                            }
+                        }
                     }
                 }
             }
         }
     }
 
-
-    private var taskSections: some View {
+    private var originalTasksSection: some View {
         Group {
             if scheduledTasks.isEmpty && unscheduledTasks.isEmpty {
                 Text("No tasks for this day!")
@@ -153,11 +183,21 @@ struct HomeView: View {
                             .font(.headline)
                             .padding(.horizontal)
 
-                        ForEach(Array(scheduledTasks.enumerated()), id: \.1.id) { index, task in
-                            NavigationLink(destination: TaskDetailView(task: task, taskIndex: index)
-                                .environmentObject(groupManager)) {
-                                taskRow(task) {
-                                    scheduleAlarmForCalendar(task)
+                        ForEach(scheduledTasks) { task in
+                            taskRow(task) {
+                                scheduleAlarmForCalendar(task)
+                            }
+                            .background(
+                                NavigationLink(destination: TaskDetailView(task: task, taskIndex: 0).environmentObject(groupManager)) {
+                                    EmptyView()
+                                }
+                                .opacity(0)
+                            )
+                            .swipeActions(edge: .trailing) {
+                                Button(role: .destructive) {
+                                    completeTask(task)
+                                } label: {
+                                    Label("Complete", systemImage: "checkmark")
                                 }
                             }
                         }
@@ -170,11 +210,21 @@ struct HomeView: View {
                             .font(.headline)
                             .padding(.horizontal)
 
-                        ForEach(Array(unscheduledTasks.enumerated()), id: \.1.id) { index, task in
-                            NavigationLink(destination: TaskDetailView(task: task, taskIndex: index)
-                                .environmentObject(groupManager)) {
-                                taskRow(task) {
-                                    scheduleAlarmForCalendar(task)
+                        ForEach(unscheduledTasks) { task in
+                            taskRow(task) {
+                                scheduleAlarmForCalendar(task)
+                            }
+                            .background(
+                                NavigationLink(destination: TaskDetailView(task: task, taskIndex: 0).environmentObject(groupManager)) {
+                                    EmptyView()
+                                }
+                                .opacity(0)
+                            )
+                            .swipeActions(edge: .trailing) {
+                                Button(role: .destructive) {
+                                    completeTask(task)
+                                } label: {
+                                    Label("Complete", systemImage: "checkmark")
                                 }
                             }
                         }
@@ -185,23 +235,46 @@ struct HomeView: View {
     }
 
     private var toolbarItems: some ToolbarContent {
-        ToolbarItemGroup(placement: .navigationBarTrailing) {
-            Button(action: {
-                dateForNewTask = selectedDate
-            }) {
-                Image(systemName: "plus")
+        Group {
+            ToolbarItemGroup(placement: .navigationBarLeading) {
+                NavigationLink(destination: TaskExpansionView().environmentObject(groupManager)) {
+                    Image(systemName: "wand.and.stars.inverse")
+                }
             }
 
-            NavigationLink(destination: PlannerView()
-                .environmentObject(groupManager)
-                .environmentObject(todayPlanManager)
-            ) {
-                Image(systemName: "sparkles")
+            ToolbarItemGroup(placement: .navigationBarTrailing) {
+                Button(action: {
+                    dateForNewTask = selectedDate
+                }) {
+                    Image(systemName: "plus")
+                }
+
+                NavigationLink(destination: PlannerView()
+                    .environmentObject(groupManager)
+                    .environmentObject(todayPlanManager)) {
+                        Image(systemName: "sparkles")
+                }
             }
+        }
+    }
+
+
+
+    private func completeTask(_ task: UserTask) {
+        completedTasks.append(task)
+        groupManager.deleteTask(task)
+        triggerConfetti()
+    }
+
+    private func triggerConfetti() {
+        showConfetti = true
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+            showConfetti = false
         }
     }
 }
 
+// Needed because SwiftUI needs them scoped properly
 struct ScrollOffsetKey: PreferenceKey {
     static var defaultValue: CGFloat = 0
     static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
@@ -224,11 +297,7 @@ private func scheduleAlarmForCalendar(_ task: UserTask) {
 private func requestNotificationPermissionIfNeeded() {
     UNUserNotificationCenter.current().getNotificationSettings { settings in
         if settings.authorizationStatus != .authorized {
-            UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge]) { granted, error in
-                if let error = error {
-                    print("Notification permission error: \(error.localizedDescription)")
-                }
-            }
+            UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge]) { _, _ in }
         }
     }
 }
@@ -249,7 +318,6 @@ private func scheduleNotification(title: String, body: String, at dateOrString: 
         if let date = formatter.date(from: timeString) {
             triggerDateComponents = Calendar.current.dateComponents([.hour, .minute], from: date)
         } else {
-            print("Invalid time format for notification.")
             return
         }
     } else {
@@ -258,11 +326,10 @@ private func scheduleNotification(title: String, body: String, at dateOrString: 
 
     let trigger = UNCalendarNotificationTrigger(dateMatching: triggerDateComponents, repeats: false)
     let request = UNNotificationRequest(identifier: UUID().uuidString, content: content, trigger: trigger)
-
     UNUserNotificationCenter.current().add(request)
 }
 
-// Reusable task views
+// task views
 private func taskRow(_ task: UserTask, alarmAction: @escaping () -> Void) -> some View {
     VStack(alignment: .leading, spacing: 6) {
         HStack {
@@ -281,7 +348,6 @@ private func taskRow(_ task: UserTask, alarmAction: @escaping () -> Void) -> som
                         }
                     }
                 }
-
                 Text(task.title)
                     .font(.headline)
 
@@ -289,15 +355,13 @@ private func taskRow(_ task: UserTask, alarmAction: @escaping () -> Void) -> som
                     .font(.caption2)
                     .foregroundColor(.gray)
 
-                if task.isLocationSensitive, let loc = task.location {
+                if task.isLocationSensitive, let loc = task.location, !loc.lowercased().contains("anywhere") {
                     Text("📍 \(loc)")
                         .font(.caption2)
                         .foregroundColor(.gray)
                 }
             }
-
             Spacer()
-
             Button(action: alarmAction) {
                 Image(systemName: "bell")
                     .font(.title3)
@@ -326,9 +390,7 @@ private func taskCardView(title: String, subtitle: String, reason: String, alarm
                         .foregroundColor(.secondary)
                 }
             }
-
             Spacer()
-
             Button(action: alarmAction) {
                 Image(systemName: "bell")
                     .font(.title3)
@@ -340,52 +402,4 @@ private func taskCardView(title: String, subtitle: String, reason: String, alarm
     .background(Color(.systemGray6))
     .cornerRadius(10)
     .padding(.horizontal)
-}
-private func originalTasksSection(
-    scheduledTasks: [UserTask],
-    unscheduledTasks: [UserTask],
-    groupManager: TaskGroupManager
-) -> some View {
-    VStack(spacing: 16) {
-        if scheduledTasks.isEmpty && unscheduledTasks.isEmpty {
-            Text("No tasks for this day!")
-                .foregroundColor(.gray)
-                .frame(maxWidth: .infinity)
-                .padding()
-        } else {
-            if !scheduledTasks.isEmpty {
-                VStack(alignment: .leading, spacing: 12) {
-                    Text("📅 Scheduled Tasks")
-                        .font(.headline)
-                        .padding(.horizontal)
-
-                    ForEach(Array(scheduledTasks.enumerated()), id: \.1.id) { index, task in
-                        NavigationLink(destination: TaskDetailView(task: task, taskIndex: index)
-                            .environmentObject(groupManager)) {
-                            taskRow(task) {
-                                scheduleAlarmForCalendar(task)
-                            }
-                        }
-                    }
-                }
-            }
-
-            if !unscheduledTasks.isEmpty {
-                VStack(alignment: .leading, spacing: 12) {
-                    Text("🗓️ Unscheduled Tasks")
-                        .font(.headline)
-                        .padding(.horizontal)
-
-                    ForEach(Array(unscheduledTasks.enumerated()), id: \.1.id) { index, task in
-                        NavigationLink(destination: TaskDetailView(task: task, taskIndex: index)
-                            .environmentObject(groupManager)) {
-                            taskRow(task) {
-                                scheduleAlarmForCalendar(task)
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
 }

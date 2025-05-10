@@ -18,6 +18,7 @@ struct AddTaskView: View {
     @State private var startTime = Date()
     @State private var endTime = Date()
 
+    // Custom initializer to prefill the date
     init(selectedDate: Date?) {
         _selectedDate = State(initialValue: selectedDate ?? Date())
     }
@@ -50,7 +51,10 @@ struct AddTaskView: View {
                         case .busyFromTo:
                             DatePicker("Start Time", selection: $startTime, displayedComponents: [.hourAndMinute])
                             DatePicker("End Time", selection: $endTime, displayedComponents: [.hourAndMinute])
+                        case .none:
+                            EmptyView()
                         }
+
                     }
                 }
 
@@ -83,7 +87,10 @@ struct AddTaskView: View {
                 actualStartTime = startTime
                 actualEndTime = endTime
                 sensitivityTypeForSaving = .busyFromTo
+            case .none:
+                sensitivityTypeForSaving = .none
             }
+
         }
 
         let newTask = UserTask(

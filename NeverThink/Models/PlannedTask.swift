@@ -8,6 +8,7 @@ struct PlannedTask: Codable, Identifiable {
     var notes: String?
     var reason: String?
     var date: Date
+    var isCompleted: Bool = false
 
     private enum CodingKeys: String, CodingKey {
         case start_time, end_time, title, notes, reason

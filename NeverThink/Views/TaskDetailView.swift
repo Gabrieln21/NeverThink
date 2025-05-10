@@ -33,8 +33,11 @@ struct TaskDetailView: View {
                         if let start = task.timeRangeStart, let end = task.timeRangeEnd {
                             Text("Busy from: \(start.formatted(date: .omitted, time: .shortened)) to \(end.formatted(date: .omitted, time: .shortened))")
                         }
+                    case .none:
+                        EmptyView() // cover all cases
                     }
                 }
+
 
                 Text("Urgency: \(task.urgency.rawValue)")
             } header: {

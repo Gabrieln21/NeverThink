@@ -42,6 +42,8 @@ struct RecurringTasksView: View {
                                             .font(.caption)
                                             .foregroundColor(.gray)
                                     }
+                                case .none:
+                                    EmptyView()
                                 }
                             } else {
                                 Text("\(task.recurringInterval.rawValue)")

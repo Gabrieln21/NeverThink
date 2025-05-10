@@ -19,6 +19,7 @@ struct NewRecurringTaskView: View {
     @State private var location: String = ""
     @State private var recurringInterval: RecurringInterval = .daily
 
+    // 🆕 New for Weekly Selection
     @State private var selectedWeekdays: Set<Int> = []
 
     var body: some View {
@@ -99,6 +100,7 @@ struct NewRecurringTaskView: View {
                     }
                     .pickerStyle(SegmentedPickerStyle())
 
+                    // Show weekday picker if Weekly
                     if recurringInterval == .weekly {
                         VStack {
                             HStack {
@@ -167,7 +169,7 @@ struct NewRecurringTaskView: View {
             category: .doAnywhere,
             recurringInterval: recurringInterval,
             selectedWeekdays: recurringInterval == .weekly ? selectedWeekdays : nil,
-            startTime: isTimeSensitive ? (timeSensitivityType == .startsAt ? startTime : nil) : nil // 👈 THIS NOW COMES LAST
+            startTime: isTimeSensitive ? (timeSensitivityType == .startsAt ? startTime : nil) : nil 
         )
 
 

@@ -138,8 +138,12 @@ struct EditTaskView: View {
                 actualStartTime = startTime
                 actualEndTime = endTime
                 updatedSensitivityType = .busyFromTo
+            case .none:
+                // No specific time info needed
+                updatedSensitivityType = .none
             }
         }
+
 
         let totalDurationMinutes = (Int(durationHours) ?? 0) * 60 + (Int(durationMinutes) ?? 0)
 

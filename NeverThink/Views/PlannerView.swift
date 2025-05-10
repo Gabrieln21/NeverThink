@@ -60,6 +60,7 @@ struct PlannerView: View {
         }
         .onChange(of: selectedGroup) { newGroup in
             if let group = newGroup {
+                // Trying to parse the group's name into a real date
                 let formatter = DateFormatter()
                 formatter.dateStyle = .long
                 if let parsedDate = formatter.date(from: group.name) {
@@ -180,7 +181,7 @@ struct PlannerView: View {
                     transportMode: selectedTransportMode
                 )
 
-                // correct date when parsing
+                // Inject the correct date when parsing
                 let normalizedSelectedDate = Calendar.current.startOfDay(for: selectedDate)
 
                 self.generatedPlan = rawPlan.map { task in

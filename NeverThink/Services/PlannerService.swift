@@ -2,7 +2,7 @@
 //  PlannerService.swift
 //  NeverThink
 //
-//  Created by Gabriel Fernandez on 4/25/25.
+//  Created by Gabriel Hernandez on 4/25/25.
 //
 
 import Foundation
@@ -11,7 +11,7 @@ import CoreLocation
 class PlannerService: NSObject, CLLocationManagerDelegate {
     static let shared = PlannerService()
 
-    private var apiKey: String?
+    var apiKey: String?
     private var locationManager: CLLocationManager?
     private var locationContinuation: CheckedContinuation<CLLocationCoordinate2D, Error>?
     private var currentLocation: CLLocationCoordinate2D?
@@ -54,7 +54,7 @@ class PlannerService: NSObject, CLLocationManagerDelegate {
             self.locationContinuation = continuation
             requestLocation()
 
-            // Timeout fallback!
+            // Timeout fallback
             DispatchQueue.main.asyncAfter(deadline: .now() + 10) {
                 if self.locationContinuation != nil {
                     continuation.resume(throwing: NSError(domain: "PlannerService", code: 99, userInfo: [
@@ -72,7 +72,7 @@ class PlannerService: NSObject, CLLocationManagerDelegate {
             throw NSError(domain: "PlannerService", code: 0, userInfo: [NSLocalizedDescriptionKey: "API Key not configured"])
         }
 
-        // grab the location
+        // Grab the location
         let userLocation = try await getCurrentLocation()
 
         let formattedTasks = tasks.map { task -> String in
@@ -89,8 +89,11 @@ class PlannerService: NSObject, CLLocationManagerDelegate {
                     }
                 case .busyFromTo:
                     assumedStartTime = task.timeRangeStart
+                case .none:
+                    break // do nothing
                 }
             }
+
 
             var result = """
             Title: \(task.title)
@@ -309,7 +312,7 @@ class PlannerService: NSObject, CLLocationManagerDelegate {
 
             let updatedTasks = rawTasks.map { rawTask in
                 var task = rawTask
-                task.date = normalizedDate // 🔥
+                task.date = normalizedDate 
                 return task
             }
 

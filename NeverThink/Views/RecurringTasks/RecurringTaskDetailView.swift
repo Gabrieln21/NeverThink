@@ -50,8 +50,11 @@ struct RecurringTaskDetailView: View {
                                     Text("Busy from: \(start.formatted(date: .omitted, time: .shortened)) to \(end.formatted(date: .omitted, time: .shortened))")
                                 }
                             }
+                        case .none:
+                            EmptyView() // nothing to display if `.none`
                         }
                     }
+
                 }
 
                 Section {

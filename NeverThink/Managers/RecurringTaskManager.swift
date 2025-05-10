@@ -34,7 +34,7 @@ extension RecurringTaskManager {
         let today = Date()
 
         var currentDate = today
-        let iterations = 60 // About 2 months !Potentially select!!
+        let iterations = 60 // About 2 months !!make a pickable option?!
 
         for _ in 0..<iterations {
             let weekday = calendar.component(.weekday, from: currentDate) - 1 // Sunday = 0
@@ -42,11 +42,11 @@ extension RecurringTaskManager {
             if recurringTask.recurringInterval == .weekly {
                 if !(recurringTask.selectedWeekdays?.contains(weekday) ?? false) {
                     currentDate = calendar.date(byAdding: .day, value: 1, to: currentDate)!
-                    continue
+                    continue // Skip if not selected weekday
                 }
             }
 
-            
+            // Adjust saved times to the correct currentDate
             func adjustTime(_ time: Date?) -> Date? {
                 guard let time = time else { return nil }
                 let components = calendar.dateComponents([.hour, .minute], from: time)
@@ -80,6 +80,7 @@ extension RecurringTaskManager {
 
             groupManager.addTask(newTask)
 
+            // Advance
             currentDate = calendar.date(byAdding: .day, value: 1, to: currentDate)!
         }
     }

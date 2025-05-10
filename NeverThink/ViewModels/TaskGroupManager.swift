@@ -51,6 +51,16 @@ class TaskGroupManager: ObservableObject {
         groups.sort { $0.name < $1.name }
         objectWillChange.send()
     }
+    
+    func deleteTask(_ task: UserTask) {
+        for (index, group) in groups.enumerated() {
+            if let taskIndex = groups[index].tasks.firstIndex(where: { $0.id == task.id }) {
+                groups[index].tasks.remove(at: taskIndex)
+                break
+            }
+        }
+    }
+
 
 
     func allTasks() -> [UserTask] {

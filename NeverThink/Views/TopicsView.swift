@@ -13,7 +13,7 @@ struct TopicsView: View {
     var body: some View {
         NavigationView {
             List {
-                // Only show topics that are NOT date-based
+                // Only show topics that are not date-based
                 ForEach(groupManager.groups.filter { !isDateBasedGroup($0.name) }) { group in
                     NavigationLink(destination: TaskListViewForGroup(group: group)
                         .environmentObject(groupManager)
