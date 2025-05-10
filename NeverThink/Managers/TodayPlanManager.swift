@@ -25,6 +25,16 @@ class TodayPlanManager: ObservableObject {
         let normalizedDate = Calendar.current.startOfDay(for: date)
         todayPlansByDate.removeValue(forKey: normalizedDate)
     }
+    func updateTask(_ task: PlannedTask) {
+        let normalizedDate = Calendar.current.startOfDay(for: task.date)
+
+        if var tasksForDate = todayPlansByDate[normalizedDate] {
+            if let index = tasksForDate.firstIndex(where: { $0.id == task.id }) {
+                tasksForDate[index] = task
+                todayPlansByDate[normalizedDate] = tasksForDate
+            }
+        }
+    }
     func markTaskCompleted(_ task: PlannedTask) {
         let day = Calendar.current.startOfDay(for: Date())
         if var tasks = todayPlansByDate[day] {

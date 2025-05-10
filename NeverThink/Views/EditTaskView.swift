@@ -139,7 +139,6 @@ struct EditTaskView: View {
                 actualEndTime = endTime
                 updatedSensitivityType = .busyFromTo
             case .none:
-                // No specific time info needed
                 updatedSensitivityType = .none
             }
         }

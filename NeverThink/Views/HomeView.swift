@@ -135,12 +135,12 @@ struct HomeView: View {
     }
 
     private func completeAIPlanTask(_ task: PlannedTask) {
-        todayPlanManager.markTaskCompleted(task) // mark as completed
+        todayPlanManager.markTaskCompleted(task)
         triggerConfetti()
     }
 
     private func aiPlanSection(todaysAIPlan: [PlannedTask]) -> some View {
-        let activeAIPlans = todaysAIPlan.filter { !$0.isCompleted } // Only show active ones
+        let activeAIPlans = todaysAIPlan.filter { !$0.isCompleted }
         return Group {
             if !activeAIPlans.isEmpty {
                 VStack(alignment: .leading, spacing: 12) {
@@ -149,12 +149,21 @@ struct HomeView: View {
                         .padding(.horizontal)
 
                     ForEach(activeAIPlans) { task in
-                        taskCardView(
-                            title: task.title,
-                            subtitle: "\(task.start_time) - \(task.end_time)",
-                            reason: task.reason ?? ""
+                        NavigationLink(
+                            destination: EditPlannedTaskView(
+                                task: task,
+                                onSave: { updatedTask in
+                                    todayPlanManager.updateTask(updatedTask)
+                                }
+                            )
                         ) {
-                            scheduleAlarmForAI(task)
+                            taskCardView(
+                                title: task.title,
+                                subtitle: "\(task.start_time) - \(task.end_time)",
+                                reason: task.reason ?? ""
+                            ) {
+                                scheduleAlarmForAI(task)
+                            }
                         }
                         .swipeActions(edge: .trailing) {
                             Button(role: .destructive) {
@@ -168,6 +177,7 @@ struct HomeView: View {
             }
         }
     }
+
 
     private var originalTasksSection: some View {
         Group {
@@ -184,15 +194,11 @@ struct HomeView: View {
                             .padding(.horizontal)
 
                         ForEach(scheduledTasks) { task in
-                            taskRow(task) {
-                                scheduleAlarmForCalendar(task)
-                            }
-                            .background(
-                                NavigationLink(destination: TaskDetailView(task: task, taskIndex: 0).environmentObject(groupManager)) {
-                                    EmptyView()
+                            NavigationLink(destination: TaskDetailView(task: task, taskIndex: 0).environmentObject(groupManager)) {
+                                taskRow(task) {
+                                    scheduleAlarmForCalendar(task)
                                 }
-                                .opacity(0)
-                            )
+                            }
                             .swipeActions(edge: .trailing) {
                                 Button(role: .destructive) {
                                     completeTask(task)
@@ -201,6 +207,7 @@ struct HomeView: View {
                                 }
                             }
                         }
+
                     }
                 }
 
@@ -274,7 +281,6 @@ struct HomeView: View {
     }
 }
 
-// Needed because SwiftUI needs them scoped properly
 struct ScrollOffsetKey: PreferenceKey {
     static var defaultValue: CGFloat = 0
     static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
@@ -329,7 +335,7 @@ private func scheduleNotification(title: String, body: String, at dateOrString: 
     UNUserNotificationCenter.current().add(request)
 }
 
-// task views
+// Reusable task views
 private func taskRow(_ task: UserTask, alarmAction: @escaping () -> Void) -> some View {
     VStack(alignment: .leading, spacing: 6) {
         HStack {

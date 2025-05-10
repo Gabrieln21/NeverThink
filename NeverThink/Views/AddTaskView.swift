@@ -18,7 +18,6 @@ struct AddTaskView: View {
     @State private var startTime = Date()
     @State private var endTime = Date()
 
-    // Custom initializer to prefill the date
     init(selectedDate: Date?) {
         _selectedDate = State(initialValue: selectedDate ?? Date())
     }

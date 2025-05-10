@@ -37,6 +37,6 @@ struct PlannedTask: Codable, Identifiable {
         title = try container.decode(String.self, forKey: .title)
         notes = try container.decodeIfPresent(String.self, forKey: .notes)
         reason = try container.decodeIfPresent(String.self, forKey: .reason)
-        date = Date()
+        date = Date() // later overwritten correctly!
     }
 }

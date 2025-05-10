@@ -90,7 +90,7 @@ class PlannerService: NSObject, CLLocationManagerDelegate {
                 case .busyFromTo:
                     assumedStartTime = task.timeRangeStart
                 case .none:
-                    break // do nothing
+                    break
                 }
             }
 
@@ -312,7 +312,7 @@ class PlannerService: NSObject, CLLocationManagerDelegate {
 
             let updatedTasks = rawTasks.map { rawTask in
                 var task = rawTask
-                task.date = normalizedDate 
+                task.date = normalizedDate
                 return task
             }
 

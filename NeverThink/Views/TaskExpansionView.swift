@@ -1,27 +1,31 @@
 //
 //  TaskExpansionView.swift
-//  NeverThink
+//  planMee
 //
 
 import SwiftUI
 
 struct TaskExpansionView: View {
     @EnvironmentObject var todayPlanManager: TodayPlanManager
+    @EnvironmentObject var groupManager: TaskGroupManager
 
     @State private var userInput: String = ""
     @State private var generatedTasks: [UserTask] = []
     @State private var isLoading: Bool = false
     @State private var errorMessage: String?
+    @State private var selectedTask: UserTask? = nil
 
     var body: some View {
         NavigationView {
             VStack {
-                TextEditor(text: $userInput)
-                    .frame(height: 150)
-                    .padding()
-                    .background(Color.gray.opacity(0.1))
-                    .cornerRadius(10)
-                    .padding()
+                if generatedTasks.isEmpty {
+                    TextEditor(text: $userInput)
+                        .frame(height: 150)
+                        .padding()
+                        .background(Color.gray.opacity(0.1))
+                        .cornerRadius(10)
+                        .padding()
+                }
 
                 if isLoading {
                     ProgressView("Generating tasks...")
@@ -35,18 +39,52 @@ struct TaskExpansionView: View {
                 }
 
                 if !generatedTasks.isEmpty {
-                    List(generatedTasks) { task in
-                        VStack(alignment: .leading) {
-                            Text(task.title)
-                                .font(.headline)
-                            Text("\(task.duration) min • Urgency: \(task.urgency.rawValue)")
-                                .font(.caption)
-                                .foregroundColor(.secondary)
+                    List {
+                        ForEach(generatedTasks.indices, id: \.self) { index in
+                            HStack(alignment: .top, spacing: 8) {
+                                // Delete button
+                                Button(action: {
+                                    generatedTasks.remove(at: index)
+                                }) {
+                                    Image(systemName: "xmark.circle.fill")
+                                        .foregroundColor(.red)
+                                        .font(.title2)
+                                }
+                                .buttonStyle(BorderlessButtonStyle())
+                                .padding(.top, 4)
+
+                                // Tap to edit
+                                Button(action: {
+                                    selectedTask = generatedTasks[index]
+                                }) {
+                                    VStack(alignment: .leading, spacing: 4) {
+                                        Text(generatedTasks[index].title)
+                                            .font(.headline)
+
+                                        Text("\(generatedTasks[index].duration) min • Urgency: \(generatedTasks[index].urgency.rawValue)")
+                                            .font(.caption)
+                                            .foregroundColor(.secondary)
+
+                                        if let date = generatedTasks[index].date {
+                                            Text("📅 \(date.formatted(date: .abbreviated, time: .omitted))")
+                                                .font(.caption2)
+                                                .foregroundColor(.gray)
+                                        } else {
+                                            Text("⚠️ No date set (will default to Today)")
+                                                .font(.caption2)
+                                                .foregroundColor(.orange)
+                                        }
+                                    }
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                }
+                                .buttonStyle(PlainButtonStyle())
+                            }
+                            .padding(.vertical, 6)
                         }
                     }
 
-                    Button(action: acceptTasks) {
-                        Text("✅ Add to Today")
+                    Button(action: confirmAndSave) {
+                        Text("✅ Confirm and Save Tasks")
                             .font(.headline)
                             .padding()
                             .frame(maxWidth: .infinity)
@@ -59,19 +97,28 @@ struct TaskExpansionView: View {
 
                 Spacer()
 
-                Button(action: generateTasks) {
-                    Text("✨ Generate Tasks")
-                        .font(.headline)
-                        .padding()
-                        .frame(maxWidth: .infinity)
-                        .background(Color.accentColor)
-                        .foregroundColor(.white)
-                        .cornerRadius(10)
+                if generatedTasks.isEmpty {
+                    Button(action: generateTasks) {
+                        Text("✨ Generate Tasks")
+                            .font(.headline)
+                            .padding()
+                            .frame(maxWidth: .infinity)
+                            .background(Color.accentColor)
+                            .foregroundColor(.white)
+                            .cornerRadius(10)
+                    }
+                    .padding()
+                    .disabled(userInput.trimmingCharacters(in: .whitespaces).isEmpty || isLoading)
                 }
-                .padding()
-                .disabled(userInput.trimmingCharacters(in: .whitespaces).isEmpty || isLoading)
             }
             .navigationTitle("Magic Wand 🪄")
+            .sheet(item: $selectedTask) { task in
+                GeneratedTaskEditorView(task: task) { updatedTask in
+                    if let index = generatedTasks.firstIndex(where: { $0.id == updatedTask.id }) {
+                        generatedTasks[index] = updatedTask
+                    }
+                }
+            }
         }
     }
 
@@ -85,6 +132,7 @@ struct TaskExpansionView: View {
             do {
                 let tasks = try await TaskExpansionService.shared.expandTextToTasks(userInput)
                 self.generatedTasks = tasks
+                self.userInput = "" // Clear input after generation
             } catch {
                 self.errorMessage = error.localizedDescription
             }
@@ -92,26 +140,39 @@ struct TaskExpansionView: View {
         }
     }
 
-    private func acceptTasks() {
-        let normalizedDate = Calendar.current.startOfDay(for: Date())
+    private func confirmAndSave() {
+        for task in generatedTasks {
+            let finalDate = task.date ?? Calendar.current.startOfDay(for: Date()) // Default to today if missing
 
-        let plannedTasks = generatedTasks.map { userTask in
-            PlannedTask(
-                start_time: userTask.exactTime != nil
-                    ? DateFormatter.localizedString(from: userTask.exactTime!, dateStyle: .none, timeStyle: .short)
-                    : "TBD",
-                end_time: "TBD",
-                title: userTask.title,
-                notes: nil,
-                reason: nil,
-                date: normalizedDate
+            let dateFormatter = DateFormatter()
+            dateFormatter.dateStyle = .long
+            let dateString = dateFormatter.string(from: finalDate)
+
+            let newTask = UserTask(
+                id: task.id,
+                title: task.title,
+                duration: task.duration,
+                isTimeSensitive: task.isTimeSensitive,
+                urgency: task.urgency,
+                isLocationSensitive: task.isLocationSensitive,
+                location: task.location,
+                category: .doAnywhere,
+                timeSensitivityType: task.timeSensitivityType,
+                exactTime: task.exactTime,
+                timeRangeStart: task.timeRangeStart,
+                timeRangeEnd: task.timeRangeEnd,
+                date: finalDate
             )
+
+            if let dateGroupIndex = groupManager.groups.firstIndex(where: { $0.name == dateString }) {
+                groupManager.groups[dateGroupIndex].tasks.append(newTask)
+            } else {
+                let newDateGroup = TaskGroup(name: dateString, tasks: [newTask])
+                groupManager.groups.append(newDateGroup)
+            }
         }
 
-        todayPlanManager.saveTodayPlan(for: normalizedDate, plannedTasks)
         generatedTasks = []
         userInput = ""
     }
-
-
 }

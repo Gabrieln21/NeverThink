@@ -4,13 +4,14 @@ struct PlannerView: View {
     @EnvironmentObject var groupManager: TaskGroupManager
     @EnvironmentObject var todayPlanManager: TodayPlanManager
 
-    @State private var selectedGroup: TaskGroup?
+    @State private var selectedGroup: TaskGroup? = nil
     @State private var generatedPlan: [PlannedTask] = []
     @State private var isLoading: Bool = false
-    @State private var errorMessage: String?
+    @State private var errorMessage: String? = nil
     @State private var showTransportModeSheet: Bool = false
     @State private var selectedTransportMode: String = ""
     @State private var selectedDate: Date = Date()
+    @State private var selectedTaskForEditing: PlannedTask? = nil
 
     var body: some View {
         NavigationView {
@@ -27,8 +28,25 @@ struct PlannerView: View {
                                 .foregroundColor(.red)
                                 .padding()
                         } else if !generatedPlan.isEmpty {
-                            ForEach(generatedPlan) { task in
-                                TaskCardView(task: task)
+                            ForEach(generatedPlan.indices, id: \.self) { index in
+                                HStack {
+                                    Button(action: {
+                                        generatedPlan.remove(at: index)
+                                    }) {
+                                        Image(systemName: "xmark.circle.fill")
+                                            .foregroundColor(.red)
+                                            .font(.title2)
+                                    }
+                                    .buttonStyle(BorderlessButtonStyle())
+                                    .padding(.trailing, 4)
+
+                                    Button(action: {
+                                        selectedTaskForEditing = generatedPlan[index]
+                                    }) {
+                                        TaskCardView(task: generatedPlan[index])
+                                    }
+                                    .buttonStyle(PlainButtonStyle())
+                                }
                             }
                             acceptPlanButton
                         } else {
@@ -40,6 +58,14 @@ struct PlannerView: View {
                         }
                     }
                     .padding(.horizontal)
+                }
+                .sheet(item: $selectedTaskForEditing) { task in
+                    EditPlannedTaskView(task: task) { updatedTask in
+                        if let index = generatedPlan.firstIndex(where: { $0.id == updatedTask.id }) {
+                            generatedPlan[index] = updatedTask
+                        }
+                        selectedTaskForEditing = nil
+                    }
                 }
                 .sheet(isPresented: $showTransportModeSheet) {
                     transportModeSheet
@@ -58,29 +84,23 @@ struct PlannerView: View {
                 Text(group.name).tag(Optional(group))
             }
         }
+        .pickerStyle(MenuPickerStyle())
+        .padding()
         .onChange(of: selectedGroup) { newGroup in
             if let group = newGroup {
-                // Trying to parse the group's name into a real date
                 let formatter = DateFormatter()
                 formatter.dateStyle = .long
                 if let parsedDate = formatter.date(from: group.name) {
                     selectedDate = parsedDate
-                    print("📅 Updated selectedDate based on group: \(selectedDate)")
-                } else {
-                    print("⚠️ Failed to parse date from group name: \(group.name)")
+                    print("📅 Updated selectedDate: \(selectedDate)")
                 }
             }
         }
-        .pickerStyle(MenuPickerStyle())
-        .padding()
     }
-
 
     var acceptPlanButton: some View {
         Button(action: {
             let normalizedDate = Calendar.current.startOfDay(for: selectedDate)
-
-            print("📅 Saving AI plan for selected date: \(normalizedDate)")
 
             let updatedTasks = generatedPlan.map { task -> PlannedTask in
                 var updatedTask = task
@@ -96,14 +116,13 @@ struct PlannerView: View {
                 .font(.headline)
                 .padding()
                 .frame(maxWidth: .infinity)
-                .background(Color.green)
+                .background(generatedPlan.isEmpty ? Color.gray : Color.green)
                 .foregroundColor(.white)
                 .cornerRadius(10)
         }
         .padding([.horizontal, .bottom])
+        .disabled(generatedPlan.isEmpty)
     }
-
-
 
     var generatePlanButton: some View {
         Button(action: {
@@ -117,7 +136,7 @@ struct PlannerView: View {
                 .foregroundColor(.white)
                 .cornerRadius(10)
         }
-        .padding([.horizontal, .bottom])
+        .padding()
         .disabled(selectedGroup == nil || isLoading)
     }
 
@@ -168,7 +187,6 @@ struct PlannerView: View {
 
     func generatePlan() {
         guard let group = selectedGroup else { return }
-
         isLoading = true
         errorMessage = nil
         generatedPlan = []
@@ -181,24 +199,19 @@ struct PlannerView: View {
                     transportMode: selectedTransportMode
                 )
 
-                // Inject the correct date when parsing
-                let normalizedSelectedDate = Calendar.current.startOfDay(for: selectedDate)
+                let normalizedDate = Calendar.current.startOfDay(for: selectedDate)
 
                 self.generatedPlan = rawPlan.map { task in
                     var updatedTask = task
-                    updatedTask.date = normalizedSelectedDate
+                    updatedTask.date = normalizedDate
                     return updatedTask
                 }
-
-                
             } catch {
                 self.errorMessage = error.localizedDescription
-                print("⚠️ Error generating plan: \(error)")
             }
             isLoading = false
         }
     }
-
 }
 
 struct TaskCardView: View {

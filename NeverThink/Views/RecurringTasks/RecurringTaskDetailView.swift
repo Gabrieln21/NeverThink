@@ -51,7 +51,7 @@ struct RecurringTaskDetailView: View {
                                 }
                             }
                         case .none:
-                            EmptyView() // nothing to display if `.none`
+                            EmptyView()
                         }
                     }
 

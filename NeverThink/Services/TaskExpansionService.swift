@@ -22,38 +22,58 @@ class TaskExpansionService {
         }
 
         let prompt = """
-        You are an intelligent productivity assistant.  
-        Given a block of text, extract a list of actionable tasks.
+        You are a smart productivity assistant.
+
+        Given the user's text, intelligently extract a list of actionable tasks.
 
         For EACH task, generate:
 
-        - title (short)
-        - duration (minutes)
-        - urgency: High, Medium, or Low
-        - timeSensitivityType: StartsAt, DueBy, BusyFromTo, None
-        - exactTime (if any, format hh:mm a)
-        - timeRangeStart (if any, format hh:mm a)
-        - timeRangeEnd (if any, format hh:mm a)
-        - location (optional, like "Home", "Gym", or "Anywhere")
-        - category (Work, Health, Errands, Personal, Chores)
+        - title (short, human-readable)
+        - duration (estimated minutes)
+        - urgency ("High", "Medium", "Low") — based on importance
+        - timeSensitivityType ("None", "Due by", "Starts at", "Busy from-to")
+        - exactTime (for StartsAt / DueBy tasks) — format "h:mm a"
+        - timeRangeStart and timeRangeEnd (for BusyFromTo tasks) — format "h:mm a"
+        - location (if task is location-sensitive) — examples: "Home", "Anywhere", "Gym", "Library"
+        - category ("Work", "Health", "Errands", "Personal", "Chores")
+        - date (optional, if day is specified — format "yyyy-MM-dd", otherwise null)
 
-        Return ONLY a raw JSON array like:
+        ❗ Always fill in as many fields as possible based on the context.
+        ❗ If time sensitivity is unknown, set "None" and leave times null.
+        ❗ If location is not obvious, default to "Anywhere".
+        ❗ If category is unclear, default to "Personal".
+        ❗ Every task must have a duration, urgency, and category.
+
+        Return ONLY a **raw JSON array**, no explanations.
+
+        Example:
 
         [
           {
-            "title": "Buy groceries",
-            "duration": 45,
+            "title": "Prepare Design Presentation",
+            "duration": 120,
             "urgency": "High",
+            "timeSensitivityType": "Starts at",
+            "exactTime": "8:00 AM",
+            "timeRangeStart": null,
+            "timeRangeEnd": null,
+            "location": "Office",
+            "category": "Work",
+            "date": "2025-05-01"
+          },
+          {
+            "title": "Grocery Shopping",
+            "duration": 45,
+            "urgency": "Medium",
             "timeSensitivityType": "None",
             "exactTime": null,
             "timeRangeStart": null,
             "timeRangeEnd": null,
             "location": "Supermarket",
-            "category": "Errands"
+            "category": "Errands",
+            "date": null
           }
         ]
-
-        No extra commentary. Only the raw JSON array.
 
         ---
         Text:
@@ -69,11 +89,11 @@ class TaskExpansionService {
         request.addValue("application/json", forHTTPHeaderField: "Content-Type")
 
         let body: [String: Any] = [
-            "model": "gpt-4-turbo-preview", // now usisng GPT-4 Turbo for smarter plans
+            "model": "gpt-4-turbo-preview",
             "messages": [
                 ["role": "user", "content": prompt]
             ],
-            "temperature": 0.4
+            "temperature": 0.2
         ]
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
 
@@ -121,6 +141,7 @@ class TaskExpansionService {
             let timeRangeEnd: String?
             let location: String?
             let category: String?
+            let date: String? // 🧠 NEW
         }
 
         let rawTasks = try JSONDecoder().decode([RawTask].self, from: data)
@@ -130,16 +151,16 @@ class TaskExpansionService {
                 id: UUID(),
                 title: raw.title,
                 duration: raw.duration,
-                isTimeSensitive: raw.timeSensitivityType != "None",
+                isTimeSensitive: raw.timeSensitivityType.lowercased() != "none",
                 urgency: UrgencyLevel(rawValue: raw.urgency) ?? .medium,
-                isLocationSensitive: (raw.location != nil && raw.location != "Anywhere"),
-                location: raw.location,
+                isLocationSensitive: (raw.location != nil && raw.location?.lowercased() != "anywhere"),
+                location: raw.location ?? "Anywhere",
                 category: TaskCategory(rawValue: raw.category ?? "Personal") ?? .personal,
                 timeSensitivityType: TimeSensitivity(rawValue: raw.timeSensitivityType) ?? .none,
                 exactTime: parseTime(raw.exactTime),
                 timeRangeStart: parseTime(raw.timeRangeStart),
                 timeRangeEnd: parseTime(raw.timeRangeEnd),
-                date: nil,
+                date: parseDate(raw.date),
                 parentRecurringId: nil
             )
         }
@@ -152,5 +173,12 @@ class TaskExpansionService {
         let formatter = DateFormatter()
         formatter.dateFormat = "h:mm a"
         return formatter.date(from: timeString)
+    }
+
+    private static func parseDate(_ dateString: String?) -> Date? {
+        guard let dateString = dateString else { return nil }
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd"
+        return formatter.date(from: dateString)
     }
 }
