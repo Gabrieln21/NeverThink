@@ -98,6 +98,7 @@ struct NewRecurringTaskView: View {
                     }
                     .pickerStyle(SegmentedPickerStyle())
 
+                    // Show weekday picker
                     if recurringInterval == .weekly {
                         VStack {
                             HStack {

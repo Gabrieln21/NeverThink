@@ -14,7 +14,6 @@ struct NewTaskView: View {
     @Environment(\.presentationMode) var presentationMode
     
     var targetDate: Date
-
     var targetGroupId: UUID? = nil
 
     @State private var title: String = ""
@@ -118,7 +117,7 @@ struct NewTaskView: View {
         }
     }
     
-    func resetTimesToTargetDate() {
+    private func resetTimesToTargetDate() {
         let calendar = Calendar.current
 
         func adjust(_ original: Date) -> Date {
@@ -126,9 +125,7 @@ struct NewTaskView: View {
             return calendar.date(bySettingHour: timeComponents.hour ?? 0, minute: timeComponents.minute ?? 0, second: 0, of: targetDate) ?? targetDate
         }
 
-        if !isTimeSensitive {
-            return
-        }
+        if !isTimeSensitive { return }
 
         if timeSensitivityType == .startsAt {
             startTime = adjust(startTime)
@@ -140,10 +137,7 @@ struct NewTaskView: View {
         }
     }
 
-
-
-
-    func saveTask() {
+    private func saveTask() {
         let calendar = Calendar.current
         let normalizedDate = calendar.startOfDay(for: targetDate)
 
@@ -167,7 +161,6 @@ struct NewTaskView: View {
             case .none:
                 sensitivityTypeForSaving = .none
             }
-
         }
 
         let totalDurationMinutes = (Int(durationHours) ?? 0) * 60 + (Int(durationMinutes) ?? 0)
@@ -196,18 +189,8 @@ struct NewTaskView: View {
             date: normalizedDate
         )
 
-        let dateFormatter = DateFormatter()
-        dateFormatter.dateStyle = .long
-        let dateString = dateFormatter.string(from: normalizedDate)
-
-        if let dateGroupIndex = groupManager.groups.firstIndex(where: { $0.name == dateString }) {
-            groupManager.groups[dateGroupIndex].tasks.append(newTask)
-        } else {
-            let newDateGroup = TaskGroup(name: dateString, tasks: [newTask])
-            groupManager.groups.append(newDateGroup)
-        }
+        groupManager.addTask(newTask)
 
         presentationMode.wrappedValue.dismiss()
     }
-
 }

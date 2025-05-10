@@ -12,102 +12,171 @@ struct PlannerView: View {
     @State private var selectedTransportMode: String = ""
     @State private var selectedDate: Date = Date()
     @State private var selectedTaskForEditing: PlannedTask? = nil
+    @State private var extraNotes: String = ""
 
     var body: some View {
         NavigationView {
             VStack {
-                taskListPicker
+                if selectedGroup == nil {
+                    taskGroupSelection
+                } else if isLoading {
+                    ProgressView("Generating your plan with AI...")
+                        .padding()
+                } else if let errorMessage = errorMessage {
+                    Text("⚠️ \(errorMessage)")
+                        .foregroundColor(.red)
+                        .padding()
+                } else {
+                    ScrollView {
+                        VStack(alignment: .leading, spacing: 16) {
+                            if !generatedPlan.isEmpty {
+                                ForEach(generatedPlan.indices, id: \.self) { index in
+                                    HStack {
+                                        Button(action: {
+                                            generatedPlan.remove(at: index)
+                                        }) {
+                                            Image(systemName: "xmark.circle.fill")
+                                                .foregroundColor(.red)
+                                                .font(.title2)
+                                        }
+                                        .buttonStyle(BorderlessButtonStyle())
+                                        .padding(.trailing, 4)
 
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 16) {
-                        if isLoading {
-                            ProgressView("Generating your plan with AI...")
-                                .padding()
-                        } else if let errorMessage = errorMessage {
-                            Text("⚠️ \(errorMessage)")
-                                .foregroundColor(.red)
-                                .padding()
-                        } else if !generatedPlan.isEmpty {
-                            ForEach(generatedPlan.indices, id: \.self) { index in
-                                HStack {
-                                    Button(action: {
-                                        generatedPlan.remove(at: index)
-                                    }) {
-                                        Image(systemName: "xmark.circle.fill")
-                                            .foregroundColor(.red)
-                                            .font(.title2)
+                                        Button(action: {
+                                            selectedTaskForEditing = generatedPlan[index]
+                                        }) {
+                                            TaskCardView(task: generatedPlan[index])
+                                        }
+                                        .buttonStyle(PlainButtonStyle())
                                     }
-                                    .buttonStyle(BorderlessButtonStyle())
-                                    .padding(.trailing, 4)
-
-                                    Button(action: {
-                                        selectedTaskForEditing = generatedPlan[index]
-                                    }) {
-                                        TaskCardView(task: generatedPlan[index])
-                                    }
-                                    .buttonStyle(PlainButtonStyle())
                                 }
+                                acceptPlanButton
+                                regenerateSection
+                            } else {
+                                generatePromptSection
                             }
-                            acceptPlanButton
-                        } else {
-                            emptyState
                         }
-
-                        if generatedPlan.isEmpty {
-                            generatePlanButton
-                        }
+                        .padding(.horizontal)
                     }
-                    .padding(.horizontal)
-                }
-                .sheet(item: $selectedTaskForEditing) { task in
-                    EditPlannedTaskView(task: task) { updatedTask in
-                        if let index = generatedPlan.firstIndex(where: { $0.id == updatedTask.id }) {
-                            generatedPlan[index] = updatedTask
-                        }
-                        selectedTaskForEditing = nil
-                    }
-                }
-                .sheet(isPresented: $showTransportModeSheet) {
-                    transportModeSheet
                 }
             }
             .navigationTitle("AI Daily Planner")
+            .sheet(item: $selectedTaskForEditing) { task in
+                EditPlannedTaskView(task: task) { updatedTask in
+                    if let index = generatedPlan.firstIndex(where: { $0.id == updatedTask.id }) {
+                        generatedPlan[index] = updatedTask
+                    }
+                    selectedTaskForEditing = nil
+                }
+            }
+            .sheet(isPresented: $showTransportModeSheet) {
+                transportModeSheet
+            }
             .onAppear {
                 PlannerService.shared.requestLocation()
             }
         }
     }
 
-    var taskListPicker: some View {
-        Picker("Select Task List", selection: $selectedGroup) {
-            ForEach(groupManager.groups) { group in
-                Text(group.name).tag(Optional(group))
-            }
-        }
-        .pickerStyle(MenuPickerStyle())
-        .padding()
-        .onChange(of: selectedGroup) { newGroup in
-            if let group = newGroup {
-                let formatter = DateFormatter()
-                formatter.dateStyle = .long
-                if let parsedDate = formatter.date(from: group.name) {
-                    selectedDate = parsedDate
-                    print("📅 Updated selectedDate: \(selectedDate)")
+    private var taskGroupSelection: some View {
+        ScrollView {
+            VStack(spacing: 16) {
+                Text("📋 Pick a Task List")
+                    .font(.title2)
+                    .padding(.top)
+
+                ForEach(groupManager.groups) { group in
+                    Button(action: {
+                        selectedGroup = group
+                        if let parsedDate = DateFormatter.longFormatter.date(from: group.name) {
+                            selectedDate = parsedDate
+                        }
+                    }) {
+                        HStack {
+                            VStack(alignment: .leading) {
+                                Text(group.name)
+                                    .font(.headline)
+                                Text("\(group.tasks.count) tasks")
+                                    .font(.caption)
+                                    .foregroundColor(.gray)
+                            }
+                            Spacer()
+                            if selectedGroup?.id == group.id {
+                                Image(systemName: "checkmark.circle.fill")
+                                    .foregroundColor(.green)
+                            }
+                        }
+                        .padding()
+                        .background(Color.gray.opacity(0.1))
+                        .cornerRadius(10)
+                    }
                 }
+
+                Button("Continue") {
+                    showTransportModeSheet = true
+                }
+                .disabled(selectedGroup == nil)
+                .padding()
+                .frame(maxWidth: .infinity)
+                .background(selectedGroup == nil ? Color.gray : Color.accentColor)
+                .foregroundColor(.white)
+                .cornerRadius(10)
+                .padding()
             }
         }
     }
 
-    var acceptPlanButton: some View {
+    private var generatePromptSection: some View {
+        VStack(spacing: 16) {
+            Text("✨ Optional: Add Notes")
+                .font(.headline)
+                .padding(.top)
+
+            TextEditor(text: $extraNotes)
+                .frame(height: 100)
+                .padding()
+                .background(Color.gray.opacity(0.1))
+                .cornerRadius(10)
+
+            generatePlanButton
+        }
+    }
+
+    private var regenerateSection: some View {
+        VStack(spacing: 16) {
+            Text("🔁 Want tweaks? Add Notes and Regenerate")
+                .font(.headline)
+                .padding(.top)
+
+            TextEditor(text: $extraNotes)
+                .frame(height: 100)
+                .padding()
+                .background(Color.gray.opacity(0.1))
+                .cornerRadius(10)
+
+            Button(action: {
+                regeneratePlan()
+            }) {
+                Text("🔁 Regenerate Plan with Notes")
+                    .font(.headline)
+                    .padding()
+                    .frame(maxWidth: .infinity)
+                    .background(Color.blue)
+                    .foregroundColor(.white)
+                    .cornerRadius(10)
+            }
+            .padding(.bottom)
+        }
+    }
+
+    private var acceptPlanButton: some View {
         Button(action: {
             let normalizedDate = Calendar.current.startOfDay(for: selectedDate)
-
-            let updatedTasks = generatedPlan.map { task -> PlannedTask in
-                var updatedTask = task
-                updatedTask.date = normalizedDate
-                return updatedTask
+            let updatedTasks = generatedPlan.map { task in
+                var newTask = task
+                newTask.date = normalizedDate
+                return newTask
             }
-
             todayPlanManager.saveTodayPlan(for: normalizedDate, updatedTasks)
             generatedPlan = []
             errorMessage = "✅ Plan saved for \(normalizedDate.formatted(date: .abbreviated, time: .omitted))!"
@@ -120,11 +189,11 @@ struct PlannerView: View {
                 .foregroundColor(.white)
                 .cornerRadius(10)
         }
-        .padding([.horizontal, .bottom])
+        .padding()
         .disabled(generatedPlan.isEmpty)
     }
 
-    var generatePlanButton: some View {
+    private var generatePlanButton: some View {
         Button(action: {
             showTransportModeSheet = true
         }) {
@@ -140,52 +209,32 @@ struct PlannerView: View {
         .disabled(selectedGroup == nil || isLoading)
     }
 
-    var emptyState: some View {
-        VStack {
-            Spacer()
-            Text("🧠 Select a list and generate your plan")
-                .foregroundColor(.gray)
-            Spacer()
-        }
-    }
-
-    var transportModeSheet: some View {
+    private var transportModeSheet: some View {
         VStack(spacing: 20) {
             Text("How will you get around?")
                 .font(.title2)
                 .padding()
 
-            Button("🚶‍♂️ Walk") {
-                selectedTransportMode = "walk"
-                showTransportModeSheet = false
-                generatePlan()
+            ForEach(["🚶‍♂️ Walk", "🚗 Drive", "🚋 Public Transit"], id: \.self) { option in
+                Button(option) {
+                    selectedTransportMode = option.contains("Walk") ? "walk" :
+                                             option.contains("Drive") ? "drive" : "public transit"
+                    showTransportModeSheet = false
+                    generatePlan()
+                }
+                .buttonStyle(TransportButtonStyle())
             }
-            .buttonStyle(TransportButtonStyle())
-
-            Button("🚗 Drive") {
-                selectedTransportMode = "drive"
-                showTransportModeSheet = false
-                generatePlan()
-            }
-            .buttonStyle(TransportButtonStyle())
-
-            Button("🚋 Public Transit") {
-                selectedTransportMode = "public transit"
-                showTransportModeSheet = false
-                generatePlan()
-            }
-            .buttonStyle(TransportButtonStyle())
 
             Button("Cancel") {
                 showTransportModeSheet = false
             }
             .foregroundColor(.red)
-            .padding(.top, 10)
+            .padding(.top)
         }
         .padding()
     }
 
-    func generatePlan() {
+    private func generatePlan() {
         guard let group = selectedGroup else { return }
         isLoading = true
         errorMessage = nil
@@ -198,50 +247,34 @@ struct PlannerView: View {
                     for: selectedDate,
                     transportMode: selectedTransportMode
                 )
-
-                let normalizedDate = Calendar.current.startOfDay(for: selectedDate)
-
-                self.generatedPlan = rawPlan.map { task in
-                    var updatedTask = task
-                    updatedTask.date = normalizedDate
-                    return updatedTask
-                }
+                self.generatedPlan = rawPlan.map { var task = $0; task.date = selectedDate; return task }
             } catch {
                 self.errorMessage = error.localizedDescription
             }
             isLoading = false
         }
     }
-}
 
-struct TaskCardView: View {
-    let task: PlannedTask
+    private func regeneratePlan() {
+        guard let group = selectedGroup else { return }
+        isLoading = true
+        errorMessage = nil
+        generatedPlan = []
 
-    var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text("\(task.start_time) - \(task.end_time)")
-                .font(.caption)
-                .foregroundColor(.gray)
-            Text(task.title)
-                .font(.headline)
-            if let notes = task.notes, !notes.isEmpty {
-                Text(notes)
-                    .font(.subheadline)
-                    .foregroundColor(.secondary)
+        Task {
+            do {
+                let rawPlan = try await PlannerService.shared.generatePlan(
+                    from: group.tasks,
+                    for: selectedDate,
+                    transportMode: selectedTransportMode,
+                    extraNotes: extraNotes
+                )
+                self.generatedPlan = rawPlan.map { var task = $0; task.date = selectedDate; return task }
+            } catch {
+                self.errorMessage = error.localizedDescription
             }
-            if let reason = task.reason, !reason.isEmpty {
-                DisclosureGroup("AI Reasoning") {
-                    Text(reason)
-                        .font(.footnote)
-                        .foregroundColor(.secondary)
-                        .padding(.top, 2)
-                }
-                .padding(.top, 4)
-            }
+            isLoading = false
         }
-        .padding()
-        .background(Color.gray.opacity(0.2))
-        .cornerRadius(10)
     }
 }
 
@@ -255,4 +288,12 @@ struct TransportButtonStyle: ButtonStyle {
             .foregroundColor(.white)
             .cornerRadius(10)
     }
+}
+
+extension DateFormatter {
+    static let longFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateStyle = .long
+        return formatter
+    }()
 }

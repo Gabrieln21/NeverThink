@@ -2,7 +2,7 @@
 //  PlannerService.swift
 //  NeverThink
 //
-//  Created by Gabriel Hernandez on 4/25/25.
+//  Created by Gabriel Fernandez on 4/25/25.
 //
 
 import Foundation
@@ -54,7 +54,6 @@ class PlannerService: NSObject, CLLocationManagerDelegate {
             self.locationContinuation = continuation
             requestLocation()
 
-            // Timeout fallback
             DispatchQueue.main.asyncAfter(deadline: .now() + 10) {
                 if self.locationContinuation != nil {
                     continuation.resume(throwing: NSError(domain: "PlannerService", code: 99, userInfo: [
@@ -66,13 +65,11 @@ class PlannerService: NSObject, CLLocationManagerDelegate {
         }
     }
 
-
-    func generatePlan(from tasks: [UserTask], for date: Date, transportMode: String) async throws -> [PlannedTask] {
+    func generatePlan(from tasks: [UserTask], for date: Date, transportMode: String, extraNotes: String = "") async throws -> [PlannedTask] {
         guard let apiKey = apiKey else {
             throw NSError(domain: "PlannerService", code: 0, userInfo: [NSLocalizedDescriptionKey: "API Key not configured"])
         }
 
-        // Grab the location
         let userLocation = try await getCurrentLocation()
 
         let formattedTasks = tasks.map { task -> String in
@@ -94,7 +91,6 @@ class PlannerService: NSObject, CLLocationManagerDelegate {
                 }
             }
 
-
             var result = """
             Title: \(task.title)
             Duration: \(task.duration) minutes
@@ -106,15 +102,12 @@ class PlannerService: NSObject, CLLocationManagerDelegate {
             if let assumedStartTime = assumedStartTime {
                 result += "\nAssumed Start Time: \(DateFormatter.localizedString(from: assumedStartTime, dateStyle: .none, timeStyle: .short))"
             }
-
             if task.timeSensitivityType == .dueBy, let time = task.exactTime {
                 result += "\nDue By: \(DateFormatter.localizedString(from: time, dateStyle: .none, timeStyle: .short))"
             }
-
             if task.timeSensitivityType == .startsAt, let time = task.exactTime {
                 result += "\nStarts At: \(DateFormatter.localizedString(from: time, dateStyle: .none, timeStyle: .short))"
             }
-
             if task.timeSensitivityType == .busyFromTo,
                let start = task.timeRangeStart,
                let end = task.timeRangeEnd {
@@ -131,12 +124,16 @@ class PlannerService: NSObject, CLLocationManagerDelegate {
             return result
         }.joined(separator: "\n\n")
 
-
         let dateString = DateFormatter.localizedString(from: date, dateStyle: .medium, timeStyle: .none)
-
         let currentTime = DateFormatter.localizedString(from: Date(), dateStyle: .medium, timeStyle: .short)
-
         let homeAddress = AuthenticationManager.shared.homeAddress.isEmpty ? "Not Set" : AuthenticationManager.shared.homeAddress
+
+        let extraNotesSection = extraNotes.isEmpty ? "" : """
+
+        ---
+        📝 **User Additional Notes / Problems with previous AI plan:**
+        \(extraNotes)
+        """
 
         let prompt = """
         You are an intelligent personal assistant helping a real person plan their day on \(dateString).
@@ -146,17 +143,15 @@ class PlannerService: NSObject, CLLocationManagerDelegate {
         - Their method of transportation is **\(transportMode)**.
         - The current time is **\(currentTime)**.
 
+        Problems with AI plan: Often uses the wrong time for tasks set with an exact time… You didn’t include the travel back to school for the databases class…. Sometimes tasks are skipped, this should never happen.
+
         You are given a list of tasks with these attributes:
         - Duration
         - Urgency level
         - Time sensitivity (due-by, starts-at, or busy range)
-        - Location sensitivity:
-          - "Home" ➔ Happens at home address.
-          - "Anywhere" ➔ Can be completed wherever the user currently is, unless the task naturally implies a move (e.g., gym workout).
-          - Specific Address ➔ Requires traveling to that location.
+        - Location sensitivity (Home, Anywhere, Specific Address)
 
         ---
-
         🎯 **Your Mission**: 
         Design a fully human-like, efficient daily schedule, accounting for task timing, location, travel time, and energy pacing.
 
@@ -240,6 +235,8 @@ class PlannerService: NSObject, CLLocationManagerDelegate {
         ]
 
         🚫 **NO markdown formatting, NO explanations outside the JSON array. Only the raw JSON array.**
+        
+        \(extraNotesSection)
 
         ---
 

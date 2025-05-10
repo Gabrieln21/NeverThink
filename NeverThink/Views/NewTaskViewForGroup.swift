@@ -108,7 +108,7 @@ struct NewTaskViewForGroup: View {
                 actualEndTime = endTime
                 sensitivityTypeForSaving = .busyFromTo
             case .none:
-                break
+                break // Nothing to do for .none
             }
         }
 

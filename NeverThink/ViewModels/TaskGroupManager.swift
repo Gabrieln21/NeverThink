@@ -2,8 +2,6 @@
 //  TaskGroupManager.swift
 //  NeverThink
 //
-//  Created by Gabriel Fernandez on 4/25/25.
-//
 
 import Foundation
 import SwiftUI
@@ -35,35 +33,31 @@ class TaskGroupManager: ObservableObject {
 
     func addTask(_ task: UserTask) {
         guard let taskDate = task.date else { return }
-        
-        let dateFormatter = DateFormatter()
-        dateFormatter.dateStyle = .long
-        let dateString = dateFormatter.string(from: taskDate)
+
+        let formatter = DateFormatter()
+        formatter.dateStyle = .long
+        let dateString = formatter.string(from: taskDate)
 
         if let index = groups.firstIndex(where: { $0.name == dateString }) {
-            // Group for this date already exists
             groups[index].tasks.append(task)
         } else {
-            // Group does not exist
             let newGroup = TaskGroup(name: dateString, tasks: [task])
             groups.append(newGroup)
         }
-        groups.sort { $0.name < $1.name }
+        sortGroups()
         objectWillChange.send()
     }
-    
+
     func deleteTask(_ task: UserTask) {
         for (index, group) in groups.enumerated() {
-            if let taskIndex = groups[index].tasks.firstIndex(where: { $0.id == task.id }) {
+            if let taskIndex = group.tasks.firstIndex(where: { $0.id == task.id }) {
                 groups[index].tasks.remove(at: taskIndex)
                 break
             }
         }
     }
 
-
-
-    func allTasks() -> [UserTask] {
+    var allTasks: [UserTask] {
         groups.flatMap { $0.tasks }
     }
 
@@ -77,14 +71,9 @@ class TaskGroupManager: ObservableObject {
     private func sortGroups() {
         let formatter = DateFormatter()
         formatter.dateStyle = .long
-
         groups.sort { group1, group2 in
-            guard
-                let date1 = formatter.date(from: group1.name),
-                let date2 = formatter.date(from: group2.name)
-            else {
-                return false
-            }
+            guard let date1 = formatter.date(from: group1.name),
+                  let date2 = formatter.date(from: group2.name) else { return false }
             return date1 < date2
         }
     }

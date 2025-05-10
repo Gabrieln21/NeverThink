@@ -1,6 +1,6 @@
 //
 //  TaskExpansionView.swift
-//  planMee
+//  NeverThink
 //
 
 import SwiftUI
@@ -130,9 +130,27 @@ struct TaskExpansionView: View {
 
         Task {
             do {
-                let tasks = try await TaskExpansionService.shared.expandTextToTasks(userInput)
+                // Step 1: Find relevant dates from userInput
+                let relevantDates = try await TaskExpansionService.shared.findRelevantDates(from: userInput)
+
+                // Step 2: Build a schedule only for those dates
+                var snapshot: [Date: [String]] = [:]
+
+                for task in groupManager.allTasks {
+                    guard let date = task.date else { continue }
+                    let dayStart = Calendar.current.startOfDay(for: date)
+
+                    if relevantDates.contains(where: { Calendar.current.isDate($0, inSameDayAs: dayStart) }) {
+                        let taskSummary = task.title + (task.duration > 0 ? " (\(task.duration) min)" : "")
+                        snapshot[dayStart, default: []].append(taskSummary)
+                    }
+                }
+
+                // Step 3: Pass the filtered schedule into expandTextToTasks
+                let tasks = try await TaskExpansionService.shared.expandTextToTasks(userInput, existingSchedule: snapshot)
+
                 self.generatedTasks = tasks
-                self.userInput = "" // Clear input after generation
+                self.userInput = "" // Clear input after
             } catch {
                 self.errorMessage = error.localizedDescription
             }
@@ -140,14 +158,26 @@ struct TaskExpansionView: View {
         }
     }
 
+
+    private func buildScheduleSnapshot() -> [Date: [String]] {
+        var snapshot: [Date: [String]] = [:]
+
+        for task in groupManager.allTasks {
+            guard let date = task.date else { continue }
+
+            let dayStart = Calendar.current.startOfDay(for: date)
+
+            let taskSummary = task.title + (task.duration > 0 ? " (\(task.duration) min)" : "")
+
+            snapshot[dayStart, default: []].append(taskSummary)
+        }
+
+        return snapshot
+    }
+
     private func confirmAndSave() {
         for task in generatedTasks {
-            let finalDate = task.date ?? Calendar.current.startOfDay(for: Date()) // Default to today if missing
-
-            let dateFormatter = DateFormatter()
-            dateFormatter.dateStyle = .long
-            let dateString = dateFormatter.string(from: finalDate)
-
+            let finalDate = task.date ?? Calendar.current.startOfDay(for: Date())
             let newTask = UserTask(
                 id: task.id,
                 title: task.title,
@@ -163,13 +193,10 @@ struct TaskExpansionView: View {
                 timeRangeEnd: task.timeRangeEnd,
                 date: finalDate
             )
+            groupManager.addTask(newTask)
 
-            if let dateGroupIndex = groupManager.groups.firstIndex(where: { $0.name == dateString }) {
-                groupManager.groups[dateGroupIndex].tasks.append(newTask)
-            } else {
-                let newDateGroup = TaskGroup(name: dateString, tasks: [newTask])
-                groupManager.groups.append(newDateGroup)
-            }
+            // Notify HomeView to reload
+            NotificationCenter.default.post(name: .magicWandTaskSaved, object: finalDate)
         }
 
         generatedTasks = []
