@@ -1,7 +1,7 @@
 import Foundation
 
 struct PlannedTask: Codable, Identifiable {
-    var id = UUID()
+    var id: String
     var start_time: String
     var end_time: String
     var title: String
@@ -9,7 +9,7 @@ struct PlannedTask: Codable, Identifiable {
     var reason: String?
     var date: Date
     var isCompleted: Bool = false
-    var duration: Int // minutes
+    var duration: Int
     var urgency: UrgencyLevel
     var timeSensitivityType: TimeSensitivity = .startsAt
     var location: String?
@@ -22,10 +22,11 @@ struct PlannedTask: Codable, Identifiable {
     }
 
     private enum CodingKeys: String, CodingKey {
-        case start_time, end_time, title, notes, reason, timeSensitivityType, location
+        case id, start_time, end_time, title, notes, reason, date, isCompleted, duration, urgency, timeSensitivityType, location
     }
 
     init(
+        id: String = UUID().uuidString,
         start_time: String,
         end_time: String,
         title: String,
@@ -36,6 +37,7 @@ struct PlannedTask: Codable, Identifiable {
         timeSensitivityType: TimeSensitivity = .busyFromTo,
         location: String? = nil
     ) {
+        self.id = id
         self.start_time = start_time
         self.end_time = end_time
         self.title = title
@@ -51,17 +53,18 @@ struct PlannedTask: Codable, Identifiable {
 
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(String.self, forKey: .id)
         start_time = try container.decode(String.self, forKey: .start_time)
         end_time = try container.decode(String.self, forKey: .end_time)
         title = try container.decode(String.self, forKey: .title)
         notes = try container.decodeIfPresent(String.self, forKey: .notes)
         reason = try container.decodeIfPresent(String.self, forKey: .reason)
-        location = try container.decodeIfPresent(String.self, forKey: .location) // Decode location
-        date = Date()
-        isCompleted = false
-        duration = PlannedTask.calculateDuration(from: start_time, to: end_time)
-        urgency = .medium
-        timeSensitivityType = (try? container.decode(TimeSensitivity.self, forKey: .timeSensitivityType)) ?? .busyFromTo
+        location = try container.decodeIfPresent(String.self, forKey: .location)
+        date = try container.decode(Date.self, forKey: .date)
+        isCompleted = try container.decode(Bool.self, forKey: .isCompleted)
+        duration = try container.decode(Int.self, forKey: .duration)
+        urgency = try container.decode(UrgencyLevel.self, forKey: .urgency)
+        timeSensitivityType = try container.decode(TimeSensitivity.self, forKey: .timeSensitivityType)
     }
 
     static func calculateDuration(from start: String, to end: String) -> Int {
@@ -75,4 +78,14 @@ struct PlannedTask: Codable, Identifiable {
         let diff = Calendar.current.dateComponents([.minute], from: startDate, to: endDate)
         return max(diff.minute ?? 0, 0)
     }
+}
+extension DateFormatter {
+    static let iso8601Like: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.calendar = Calendar(identifier: .iso8601)
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = TimeZone(secondsFromGMT: 0)
+        formatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ssZ"
+        return formatter
+    }()
 }

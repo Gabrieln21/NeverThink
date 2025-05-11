@@ -21,15 +21,18 @@ struct RecurringTasksView: View {
                 .ignoresSafeArea()
 
                 VStack(spacing: 16) {
+                    Text("Recurring Tasks")
+                        .font(.largeTitle.bold())
+                        .padding(.top)
+
                     filterButtons
-                        .padding(.top, 10)
 
                     if filteredTasks.isEmpty {
                         Spacer()
                         VStack(spacing: 12) {
                             Image(systemName: "arrow.clockwise.circle.fill")
                                 .font(.system(size: 50))
-                                .foregroundColor(.gray.opacity(0.5))
+                                .foregroundColor(.gray.opacity(0.4))
                             Text("No Recurring Tasks")
                                 .font(.title3)
                                 .foregroundColor(.gray)
@@ -46,21 +49,22 @@ struct RecurringTasksView: View {
                                     }
                                     .buttonStyle(PlainButtonStyle())
                                 }
-                                .onDelete(perform: deleteRecurringTask)
                             }
                             .padding(.horizontal)
                             .padding(.bottom, 40)
                         }
                     }
                 }
+                .padding(.top, 12)
+                .padding(.horizontal)
             }
-            .navigationTitle("Recurring Tasks")
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button {
                         showAddRecurring = true
                     } label: {
                         Image(systemName: "plus")
+                            .imageScale(.large)
                     }
                 }
             }
@@ -107,8 +111,6 @@ struct RecurringTasksView: View {
         }
     }
 
-
-
     private func recurringTaskCard(_ task: RecurringTask) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             Text(task.title)
@@ -139,7 +141,7 @@ struct RecurringTasksView: View {
                     EmptyView()
                 }
             } else {
-                Text("\(task.recurringInterval.rawValue)")
+                Text(task.recurringInterval.rawValue)
                     .font(.caption)
                     .foregroundColor(.secondary)
             }
@@ -148,7 +150,7 @@ struct RecurringTasksView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(
             RoundedRectangle(cornerRadius: 16)
-                .fill(Color.white.opacity(0.9))
+                .fill(Color.white.opacity(0.95))
                 .shadow(color: Color.black.opacity(0.08), radius: 5, x: 0, y: 4)
         )
     }

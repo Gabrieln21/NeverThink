@@ -11,7 +11,7 @@ import CoreLocation
 class PlannerService: NSObject, CLLocationManagerDelegate {
     static let shared = PlannerService()
 
-    var apiKey: String?
+    private(set) var apiKey: String?
     private var locationManager: CLLocationManager?
     private var locationContinuation: CheckedContinuation<CLLocationCoordinate2D, Error>?
     private var currentLocation: CLLocationCoordinate2D?
@@ -390,7 +390,7 @@ class PlannerService: NSObject, CLLocationManagerDelegate {
                     continue
                 }
 
-                // INSERT VALIDATION BLOCK HERE:
+                // INSERT VALIDATION BLOCK
                 if task.timeSensitivityType == .startsAt,
                    let expected = DateFormatter.parseTimeString(task.start_time),
                    abs(start.timeIntervalSince(expected)) > 60 {
@@ -441,7 +441,7 @@ class PlannerService: NSObject, CLLocationManagerDelegate {
     static func repositionDueByTasks(_ tasks: [PlannedTask]) -> [PlannedTask] {
         print("🔁 Repositioning dueBy tasks if they are too close to deadlines...")
         
-        // DO: future logic will find free space and move these earlier
+        // TODO logic to reposition tasks
         return tasks
     }
 
@@ -469,6 +469,7 @@ class PlannerService: NSObject, CLLocationManagerDelegate {
                let duration = travelDuration(from: prev.title, to: task.title) {
 
                 let travelTask = PlannedTask(
+                    id: UUID().uuidString,
                     start_time: prev.end_time,
                     end_time: DateFormatter.timeStringByAddingMinutes(to: prev.end_time, minutes: duration),
                     title: "Travel to \(task.title)",

@@ -17,48 +17,47 @@ struct GPTPromptBuilder {
         to endDate: Date
     ) -> String {
         
-        let todayFormatted = DateFormatter.localizedString(from: startDate, dateStyle: .long, timeStyle: .none)
-        let lastDeadlineFormatted = DateFormatter.localizedString(from: endDate, dateStyle: .long, timeStyle: .none)
-
-        var prompt = ""
-        prompt += "You are a scheduling assistant.\n"
-        prompt += "Today is \(todayFormatted).\n"
-        prompt += "You must schedule the following tasks before the final deadline: \(lastDeadlineFormatted).\n\n"
-
-        // User's existing scheduled events
-        prompt += "Here are the user's already scheduled events:\n"
-        if scheduledEvents.isEmpty {
-            prompt += "- None scheduled yet.\n"
-        } else {
-            for event in scheduledEvents {
-                if let time = event.exactTime {
-                    let timeFormatted = DateFormatter.localizedString(from: time, dateStyle: .short, timeStyle: .short)
-                    prompt += "- [\(timeFormatted)] \(event.title)\n"
-                }
-            }
-        }
-        prompt += "\n"
-
-        // Tasks that need scheduling
-        prompt += "Here are the tasks that need to be scheduled:\n"
-        for task in tasks {
-            prompt += "- \(task.title) (\(task.duration) minutes, Urgency: \(task.urgency.rawValue))"
+        let isoFormatter = ISO8601DateFormatter()
+        let taskList: [[String: Any]] = tasks.map { task in
+            var dict: [String: Any] = [
+                "id": task.id.uuidString,
+                "title": task.title,
+                "duration": task.duration,
+                "urgency": task.urgency.rawValue
+            ]
+            
             if let deadline = deadlines[task.id] {
-                let deadlineFormatted = DateFormatter.localizedString(from: deadline, dateStyle: .short, timeStyle: .short)
-                prompt += " [Hard Deadline: \(deadlineFormatted)]"
+                dict["deadline"] = isoFormatter.string(from: deadline)
             }
-            prompt += "\n"
+            return dict
         }
 
-        prompt += "\nInstructions:\n"
-        prompt += "- Distribute the tasks across available free time.\n"
-        prompt += "- Avoid conflicts with the user's existing scheduled events.\n"
-        prompt += "- Prioritize urgent tasks sooner.\n"
-        prompt += "- Fit longer tasks into larger gaps.\n"
-        prompt += "- Respect the hard deadlines.\n"
-        prompt += "- Group similar tasks together when possible.\n"
-        prompt += "- Respond with a clear day-by-day plan."
-        prompt += "- Format it nicely by date.\n"
+        let eventList: [[String: String]] = scheduledEvents.compactMap { event in
+            guard let time = event.exactTime else { return nil }
+            return [
+                "title": event.title,
+                "time": isoFormatter.string(from: time)
+            ]
+        }
+
+        var prompt = "Today is \(isoFormatter.string(from: startDate)).\n"
+        prompt += "Schedule the following tasks before \(isoFormatter.string(from: endDate)).\n"
+        prompt += "Here are the tasks:\n\(taskList)\n"
+        prompt += "Here are already scheduled events:\n\(eventList)\n"
+        prompt += """
+        
+    Respond with a JSON array of updated tasks like:
+    [
+      {
+        "id": "same-id-as-above",
+        "title": "Task title",
+        "exactTime": "2025-05-02T14:00:00Z",
+        "duration": 30,
+        "urgency": "Medium"
+      },
+      ...
+    ]
+    """
 
         return prompt
     }

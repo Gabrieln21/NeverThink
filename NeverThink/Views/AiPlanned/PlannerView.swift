@@ -196,10 +196,7 @@ struct PlannerView: View {
             let normalizedDate = Calendar.current.startOfDay(for: selectedDate)
             let updatedTasks = generatedPlan.map { task in
                 var newTask = task
-                // Only set date if somehow still nil
-                if Calendar.current.isDateInToday(task.date) {
-                    newTask.date = Calendar.current.startOfDay(for: selectedDate)
-                }
+                newTask.date = normalizedDate // set date directly
                 return newTask
             }
 
@@ -217,6 +214,7 @@ struct PlannerView: View {
         }
         .disabled(generatedPlan.isEmpty)
     }
+
 
     private var generatePlanButton: some View {
         Button(action: {

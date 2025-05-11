@@ -30,7 +30,7 @@ struct EditTaskView: View {
         _durationMinutes = State(initialValue: "\(task.duration % 60)")
         _isTimeSensitive = State(initialValue: task.isTimeSensitive)
         _timeSensitivityType = State(initialValue: task.timeSensitivityType)
-        _exactTime = State(initialValue: task.timeSensitivityType == .dueBy ? (task.exactTime ?? Date()) : Date())
+        _exactTime = State(initialValue: task.exactTime ?? Date())
         _startTime = State(initialValue: {
             switch task.timeSensitivityType {
             case .startsAt:
@@ -50,74 +50,73 @@ struct EditTaskView: View {
     }
 
     var body: some View {
-        NavigationView {
-            Form {
-                Section(header: Text("Task Info")) {
-                    TextField("Title", text: $title)
+        ZStack {
+            LinearGradient(
+                gradient: Gradient(colors: [
+                    Color(red: 0.85, green: 0.9, blue: 1.0),
+                    Color.white
+                ]),
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+            .ignoresSafeArea()
 
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("Duration:")
-                        HStack {
-                            TextField("Hours", text: $durationHours)
+            ScrollView {
+                VStack(alignment: .leading, spacing: 24) {
+                    Text("Edit Task")
+                        .font(.largeTitle.bold())
+                        .padding(.top)
+
+                    Group {
+                        Text("Title")
+                            .font(.callout).foregroundColor(.secondary)
+                        TextField("Enter task title", text: $title)
+                            .textFieldStyle(RoundedBorderTextFieldStyle())
+                    }
+
+                    Group {
+                        Text("Duration")
+                            .font(.callout).foregroundColor(.secondary)
+                        HStack(spacing: 12) {
+                            TextField("0", text: $durationHours)
                                 .keyboardType(.numberPad)
-                                .frame(width: 60)
+                                .frame(width: 50)
                                 .textFieldStyle(.roundedBorder)
-                            Text("hours")
-                            TextField("Minutes", text: $durationMinutes)
+                            Text("hrs")
+
+                            TextField("30", text: $durationMinutes)
                                 .keyboardType(.numberPad)
-                                .frame(width: 60)
+                                .frame(width: 50)
                                 .textFieldStyle(.roundedBorder)
-                            Text("minutes")
+                            Text("min")
                         }
                     }
 
-                    Toggle("Time-sensitive", isOn: $isTimeSensitive)
+                    Group {
+                        Toggle("Time Sensitive", isOn: $isTimeSensitive)
 
-                    if isTimeSensitive {
-                        Picker("Time Sensitivity", selection: $timeSensitivityType) {
-                            ForEach(TimeSensitivity.allCases) { type in
-                                Text(type.rawValue)
-                                    .tag(type)
+                        if isTimeSensitive {
+                            Picker("Time Sensitivity", selection: $timeSensitivityType) {
+                                ForEach(TimeSensitivity.allCases) { type in
+                                    Text(type.rawValue).tag(type)
+                                }
                             }
-                        }
-                        .pickerStyle(SegmentedPickerStyle())
+                            .pickerStyle(.segmented)
 
-                        Group {
                             if timeSensitivityType == .dueBy {
                                 DatePicker("Due by", selection: $exactTime, displayedComponents: [.hourAndMinute])
-                                    .onAppear {
-                                        if exactTime != (originalTask.exactTime ?? exactTime) {
-                                            exactTime = originalTask.exactTime ?? exactTime
-                                        }
-                                    }
                             } else if timeSensitivityType == .startsAt {
                                 DatePicker("Starts at", selection: $startTime, displayedComponents: [.hourAndMinute])
-                                    .onAppear {
-                                        if startTime != (originalTask.exactTime ?? startTime) {
-                                            startTime = originalTask.exactTime ?? startTime
-                                        }
-                                    }
                             } else if timeSensitivityType == .busyFromTo {
                                 DatePicker("Start Time", selection: $startTime, displayedComponents: [.hourAndMinute])
-                                    .onAppear {
-                                        if startTime != (originalTask.timeRangeStart ?? startTime) {
-                                            startTime = originalTask.timeRangeStart ?? startTime
-                                        }
-                                    }
                                 DatePicker("End Time", selection: $endTime, displayedComponents: [.hourAndMinute])
-                                    .onAppear {
-                                        if endTime != (originalTask.timeRangeEnd ?? endTime) {
-                                            endTime = originalTask.timeRangeEnd ?? endTime
-                                        }
-                                    }
                             }
                         }
-
-                        .id(timeSensitivityType)
                     }
 
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("Task Importance:")
+                    Group {
+                        Text("Task Importance")
+                            .font(.callout).foregroundColor(.secondary)
                         Picker("", selection: $urgency) {
                             ForEach(UrgencyLevel.allCases, id: \.self) {
                                 Text($0.rawValue)
@@ -125,28 +124,35 @@ struct EditTaskView: View {
                         }
                         .pickerStyle(SegmentedPickerStyle())
                     }
-                }
 
-                Section(header: Text("Location")) {
-                    Toggle("🏠 At Home?", isOn: $isAtHome)
+                    Group {
+                        Text("Location")
+                            .font(.callout).foregroundColor(.secondary)
 
-                    if !isAtHome {
-                        Toggle("🛫 Anywhere?", isOn: $isAnywhere)
+                        Toggle("🏠 At Home?", isOn: $isAtHome)
 
-                        if !isAnywhere {
-                            TextField("Enter Address", text: $location)
+                        if !isAtHome {
+                            Toggle("🛫 Anywhere?", isOn: $isAnywhere)
+
+                            if !isAnywhere {
+                                TextField("Enter Address", text: $location)
+                                    .textFieldStyle(RoundedBorderTextFieldStyle())
+                            }
                         }
                     }
-                }
 
-                Section {
-                    Button("Save Changes") {
-                        saveEdits()
+                    Button(action: saveEdits) {
+                        Text("Save Changes")
+                            .frame(maxWidth: .infinity)
+                            .padding()
+                            .background(title.isEmpty || (!isAtHome && !isAnywhere && location.isEmpty) ? Color.gray : Color.accentColor)
+                            .foregroundColor(.white)
+                            .cornerRadius(12)
                     }
-                    .fontWeight(.bold)
+                    .disabled(title.isEmpty || (!isAtHome && !isAnywhere && location.isEmpty))
                 }
+                .padding(24)
             }
-            .navigationTitle("Edit Task")
         }
     }
 
@@ -154,7 +160,7 @@ struct EditTaskView: View {
         var actualExactTime: Date? = nil
         var actualStartTime: Date? = nil
         var actualEndTime: Date? = nil
-        var updatedSensitivityType: TimeSensitivity = .dueBy
+        var updatedSensitivityType: TimeSensitivity = .none
 
         if isTimeSensitive {
             switch timeSensitivityType {
@@ -169,11 +175,9 @@ struct EditTaskView: View {
                 actualEndTime = endTime
                 updatedSensitivityType = .busyFromTo
             case .none:
-                // No specific time info needed if it's .none
                 updatedSensitivityType = .none
             }
         }
-
 
         let totalDurationMinutes = (Int(durationHours) ?? 0) * 60 + (Int(durationMinutes) ?? 0)
 
@@ -201,11 +205,11 @@ struct EditTaskView: View {
             date: originalTask.date
         )
 
-        if let todayGroupIndex = groupManager.groups.firstIndex(where: { group in
+        if let groupIndex = groupManager.groups.firstIndex(where: { group in
             group.tasks.contains(where: { $0.id == originalTask.id })
         }),
-           let taskIndexInGroup = groupManager.groups[todayGroupIndex].tasks.firstIndex(where: { $0.id == originalTask.id }) {
-            groupManager.groups[todayGroupIndex].tasks[taskIndexInGroup] = updatedTask
+           let taskIndexInGroup = groupManager.groups[groupIndex].tasks.firstIndex(where: { $0.id == originalTask.id }) {
+            groupManager.groups[groupIndex].tasks[taskIndexInGroup] = updatedTask
         }
 
         presentationMode.wrappedValue.dismiss()

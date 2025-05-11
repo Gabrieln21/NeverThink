@@ -13,22 +13,26 @@ class TaskGroupManager: ObservableObject {
         let newGroup = TaskGroup(name: name, tasks: [])
         groups.append(newGroup)
         sortGroups()
+        saveToDisk()
     }
 
     func deleteGroup(at offsets: IndexSet) {
         groups.remove(atOffsets: offsets)
+        saveToDisk()
     }
 
     func renameGroup(_ group: TaskGroup, to newName: String) {
         if let index = groups.firstIndex(where: { $0.id == group.id }) {
             groups[index].name = newName
         }
+        saveToDisk()
     }
 
     func updateGroup(_ group: TaskGroup) {
         if let index = groups.firstIndex(where: { $0.id == group.id }) {
             groups[index] = group
         }
+        saveToDisk()
     }
 
     func addTask(_ task: UserTask) {
@@ -46,6 +50,7 @@ class TaskGroupManager: ObservableObject {
         }
         sortGroups()
         objectWillChange.send()
+        saveToDisk()
     }
 
     func deleteTask(_ task: UserTask) {
@@ -55,6 +60,7 @@ class TaskGroupManager: ObservableObject {
                 break
             }
         }
+        saveToDisk()
     }
 
     var allTasks: [UserTask] {
@@ -66,6 +72,7 @@ class TaskGroupManager: ObservableObject {
             groups[index].tasks = tasks
             objectWillChange.send()
         }
+        saveToDisk()
     }
 
     private func sortGroups() {

@@ -211,7 +211,7 @@ struct TaskExpansionView: View {
 
         generatedTasks = []
         userInput = ""
-        dismiss() // Return to Home
+        dismiss() // Return Home
     }
 }
 

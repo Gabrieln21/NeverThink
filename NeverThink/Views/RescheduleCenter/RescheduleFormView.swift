@@ -24,40 +24,90 @@ struct RescheduleFormView: View {
 
     var body: some View {
         NavigationStack {
-            Form {
-                Section(header: Text("Task Info")) {
-                    TextField("Task Title", text: $newTitle)
-                    
-                    DatePicker("New Date", selection: $newDate, displayedComponents: .date)
+            ZStack {
+                LinearGradient(
+                    gradient: Gradient(colors: [
+                        Color(red: 0.85, green: 0.9, blue: 1.0),
+                        Color.white
+                    ]),
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+                .ignoresSafeArea()
 
-                    DatePicker("Optional Time", selection: Binding(
-                        get: { newTime ?? Date() },
-                        set: { newTime = $0 }
-                    ), displayedComponents: .hourAndMinute)
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 24) {
+                        Text("Reschedule Task")
+                            .font(.largeTitle.bold())
+                            .padding(.top)
 
-                    Picker("Urgency", selection: $urgency) {
-                        ForEach(UrgencyLevel.allCases, id: \.self) { level in
-                            Text(level.rawValue)
+                        Group {
+                            Text("Task Title")
+                                .font(.callout).foregroundColor(.secondary)
+
+                            TextField("Enter task title", text: $newTitle)
+                                .textFieldStyle(RoundedBorderTextFieldStyle())
+                        }
+
+                        Group {
+                            Text("New Date")
+                                .font(.callout).foregroundColor(.secondary)
+
+                            DatePicker("Select Date", selection: $newDate, displayedComponents: .date)
+                                .labelsHidden()
+                        }
+
+                        Group {
+                            Text("Optional Time")
+                                .font(.callout).foregroundColor(.secondary)
+
+                            DatePicker(
+                                "Select Time",
+                                selection: Binding(
+                                    get: { newTime ?? Date() },
+                                    set: { newTime = $0 }
+                                ),
+                                displayedComponents: .hourAndMinute
+                            )
+                            .labelsHidden()
+                        }
+
+                        Group {
+                            Text("Urgency")
+                                .font(.callout).foregroundColor(.secondary)
+
+                            Picker("", selection: $urgency) {
+                                ForEach(UrgencyLevel.allCases, id: \.self) {
+                                    Text($0.rawValue)
+                                }
+                            }
+                            .pickerStyle(SegmentedPickerStyle())
+                        }
+
+                        HStack(spacing: 12) {
+                            Button("Cancel") {
+                                presentationMode.wrappedValue.dismiss()
+                            }
+                            .frame(maxWidth: .infinity)
+                            .padding()
+                            .background(Color.gray.opacity(0.2))
+                            .foregroundColor(.primary)
+                            .cornerRadius(12)
+
+                            Button("Save Changes") {
+                                saveChanges()
+                            }
+                            .frame(maxWidth: .infinity)
+                            .padding()
+                            .background(Color.accentColor)
+                            .foregroundColor(.white)
+                            .cornerRadius(12)
                         }
                     }
-                }
-
-                Section {
-                    Button("Save Changes") {
-                        saveChanges()
-                    }
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 8)
+                    .padding(24)
                 }
             }
             .navigationTitle("Reschedule Task")
-            .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) {
-                    Button("Cancel") {
-                        presentationMode.wrappedValue.dismiss()
-                    }
-                }
-            }
         }
     }
 
@@ -68,17 +118,22 @@ struct RescheduleFormView: View {
         updatedTask.exactTime = newTime
         updatedTask.urgency = urgency
 
-        // Update groupManager
-        if let todayGroupIndex = groupManager.groups.firstIndex(where: { group in
-            group.tasks.contains(where: { $0.id == task.id })
+        // Update task in its group
+        if let groupIndex = groupManager.groups.firstIndex(where: {
+            $0.tasks.contains(where: { $0.id == task.id })
         }),
-        let taskIndexInGroup = groupManager.groups[todayGroupIndex].tasks.firstIndex(where: { $0.id == task.id }) {
-            groupManager.groups[todayGroupIndex].tasks[taskIndexInGroup] = updatedTask
+        let taskIndex = groupManager.groups[groupIndex].tasks.firstIndex(where: { $0.id == task.id }) {
+            groupManager.groups[groupIndex].tasks[taskIndex] = updatedTask
+            groupManager.saveToDisk() // Ensure persistence
+        } else {
+            // If task doesn't exist in any group, add it freshly
+            groupManager.addTask(updatedTask)
         }
 
         // Remove from reschedule queue
-        rescheduleQueue.removeAll(where: { $0.id == task.id })
+        rescheduleQueue.removeAll { $0.id == task.id }
 
         presentationMode.wrappedValue.dismiss()
     }
+
 }

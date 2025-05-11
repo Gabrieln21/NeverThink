@@ -1,10 +1,3 @@
-//
-//  RecurringTaskDetailView.swift
-//  NeverThink
-//
-//  Created by Gabriel Fernandez on 4/26/25.
-//
-
 import SwiftUI
 
 struct RecurringTaskDetailView: View {
@@ -15,64 +8,93 @@ struct RecurringTaskDetailView: View {
     var taskIndex: Int
 
     var body: some View {
-        NavigationView {
-            Form {
-                Section(header: Text("Task Info")) {
-                    Text(task.title)
-                        .font(.title)
-                        .bold()
+        ZStack {
+            LinearGradient(
+                gradient: Gradient(colors: [
+                    Color(red: 0.85, green: 0.9, blue: 1.0),
+                    Color.white
+                ]),
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+            .ignoresSafeArea()
 
-                    HStack {
-                        Image(systemName: "repeat")
-                        Text("Repeats: \(task.recurringInterval.rawValue)")
+            ScrollView {
+                VStack(alignment: .leading, spacing: 24) {
+                    Text("Recurring Task")
+                        .font(.largeTitle.bold())
+                        .padding(.top)
+
+                    Group {
+                        Text("Title")
+                            .font(.callout)
+                            .foregroundColor(.secondary)
+                        Text(task.title)
+                            .font(.title2.bold())
+                    }
+
+                    Group {
+                        Text("Recurrence")
+                            .font(.callout)
+                            .foregroundColor(.secondary)
+                        HStack {
+                            Image(systemName: "repeat")
+                            Text(task.recurringInterval.rawValue)
+                        }
+                        .font(.body)
                     }
 
                     if task.isTimeSensitive {
-                        switch task.timeSensitivityType {
-                        case .dueBy:
-                            if let dueBy = task.exactTime {
-                                HStack {
-                                    Image(systemName: "clock")
-                                    Text("Due by: \(dueBy.formatted(date: .omitted, time: .shortened))")
+                        Group {
+                            Text("Time Info")
+                                .font(.callout)
+                                .foregroundColor(.secondary)
+
+                            switch task.timeSensitivityType {
+                            case .dueBy:
+                                if let dueBy = task.exactTime {
+                                    Label("Due by: \(dueBy.formatted(date: .omitted, time: .shortened))", systemImage: "clock")
                                 }
-                            }
-                        case .startsAt:
-                            if let startsAt = task.exactTime {
-                                HStack {
-                                    Image(systemName: "clock")
-                                    Text("Starts at: \(startsAt.formatted(date: .omitted, time: .shortened))")
+                            case .startsAt:
+                                if let startsAt = task.exactTime {
+                                    Label("Starts at: \(startsAt.formatted(date: .omitted, time: .shortened))", systemImage: "clock")
                                 }
-                            }
-                        case .busyFromTo:
-                            if let start = task.timeRangeStart, let end = task.timeRangeEnd {
-                                HStack {
-                                    Image(systemName: "clock")
-                                    Text("Busy from: \(start.formatted(date: .omitted, time: .shortened)) to \(end.formatted(date: .omitted, time: .shortened))")
+                            case .busyFromTo:
+                                if let start = task.timeRangeStart, let end = task.timeRangeEnd {
+                                    Label("Busy: \(start.formatted(date: .omitted, time: .shortened)) → \(end.formatted(date: .omitted, time: .shortened))", systemImage: "clock")
                                 }
+                            case .none:
+                                EmptyView()
                             }
-                        case .none:
-                            EmptyView() // nothing to display if .none
                         }
                     }
 
-                }
+                    Divider()
 
-                Section {
                     Button(role: .destructive) {
                         deleteTask()
                     } label: {
-                        Label("Delete Task", systemImage: "trash")
+                        HStack {
+                            Image(systemName: "trash")
+                            Text("Delete Task")
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding()
+                        .background(Color.red.opacity(0.8))
+                        .foregroundColor(.white)
+                        .cornerRadius(12)
                     }
                 }
+                .padding(24)
             }
-            .navigationTitle("Recurring Task")
-            .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    NavigationLink(destination: EditRecurringTaskView(taskIndex: taskIndex, task: task)
+        }
+        .toolbar {
+            ToolbarItem(placement: .navigationBarTrailing) {
+                NavigationLink(
+                    destination: EditRecurringTaskView(taskIndex: taskIndex, task: task)
                         .environmentObject(recurringTaskManager)
-                    ) {
-                        Image(systemName: "pencil")
-                    }
+                ) {
+                    Image(systemName: "pencil")
                 }
             }
         }

@@ -2,7 +2,7 @@
 //  HomeAddressView.swift
 //  NeverThink
 //
-//  Created by Gabriel Fernandez on 4/25/25.
+//  Created by Gabriel Hernandez on 4/25/25.
 //
 
 import SwiftUI
@@ -16,7 +16,7 @@ struct HomeAddressView: View {
             // Background Gradient
             LinearGradient(
                 gradient: Gradient(colors: [
-                    Color(red: 0.85, green: 0.9, blue: 1.0), // Light lavender blue
+                    Color(red: 0.85, green: 0.9, blue: 1.0), // Light blue
                     Color.white
                 ]),
                 startPoint: .topLeading,

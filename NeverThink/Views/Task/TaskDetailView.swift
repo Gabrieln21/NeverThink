@@ -8,61 +8,102 @@ struct TaskDetailView: View {
     var taskIndex: Int
 
     var body: some View {
-        Form {
-            Section {
-                Text(task.title)
-                    .font(.title)
-                    .bold()
+        ZStack {
+            LinearGradient(
+                gradient: Gradient(colors: [
+                    Color(red: 0.85, green: 0.9, blue: 1.0),
+                    Color.white
+                ]),
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+            .ignoresSafeArea()
 
-                HStack {
-                    Image(systemName: "clock")
-                    Text("Duration: \(task.duration) minutes")
-                }
+            ScrollView {
+                VStack(alignment: .leading, spacing: 24) {
+                    Text("Task Details")
+                        .font(.largeTitle.bold())
+                        .padding(.top)
 
-                if task.isTimeSensitive {
-                    switch task.timeSensitivityType {
-                    case .dueBy:
-                        if let dueBy = task.exactTime {
-                            Text("Due by: \(dueBy.formatted(date: .omitted, time: .shortened))")
+                    Group {
+                        Text("Title")
+                            .font(.callout).foregroundColor(.secondary)
+                        Text(task.title)
+                            .font(.title2.bold())
+                    }
+
+                    Group {
+                        Text("Duration")
+                            .font(.callout).foregroundColor(.secondary)
+                        HStack {
+                            Image(systemName: "clock")
+                            Text("\(task.duration) minutes")
                         }
-                    case .startsAt:
-                        if let startsAt = task.exactTime {
-                            Text("Starts at: \(startsAt.formatted(date: .omitted, time: .shortened))")
+                        .font(.body)
+                    }
+
+                    if task.isTimeSensitive {
+                        Group {
+                            Text("Time Info")
+                                .font(.callout).foregroundColor(.secondary)
+
+                            switch task.timeSensitivityType {
+                            case .dueBy:
+                                if let dueBy = task.exactTime {
+                                    Text("🕒 Due by: \(dueBy.formatted(date: .omitted, time: .shortened))")
+                                }
+                            case .startsAt:
+                                if let startsAt = task.exactTime {
+                                    Text("🚀 Starts at: \(startsAt.formatted(date: .omitted, time: .shortened))")
+                                }
+                            case .busyFromTo:
+                                if let start = task.timeRangeStart, let end = task.timeRangeEnd {
+                                    Text("📆 Busy: \(start.formatted(date: .omitted, time: .shortened)) → \(end.formatted(date: .omitted, time: .shortened))")
+                                }
+                            default:
+                                EmptyView()
+                            }
                         }
-                    case .busyFromTo:
-                        if let start = task.timeRangeStart, let end = task.timeRangeEnd {
-                            Text("Busy from: \(start.formatted(date: .omitted, time: .shortened)) to \(end.formatted(date: .omitted, time: .shortened))")
+                    }
+
+                    Group {
+                        Text("Urgency")
+                            .font(.callout).foregroundColor(.secondary)
+                        Text(task.urgency.rawValue)
+                            .font(.body)
+                    }
+
+                    if task.isLocationSensitive, let loc = task.location {
+                        Group {
+                            Text("Location")
+                                .font(.callout).foregroundColor(.secondary)
+                            Text(loc)
                         }
-                    case .none:
-                        EmptyView()
+                    }
+
+                    Group {
+                        Text("Category")
+                            .font(.callout).foregroundColor(.secondary)
+                        Text(task.category.rawValue)
+                    }
+
+                    Divider()
+
+                    Button(role: .destructive) {
+                        deleteTask()
+                    } label: {
+                        HStack {
+                            Image(systemName: "trash")
+                            Text("Delete Task")
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding()
+                        .background(Color.red.opacity(0.8))
+                        .foregroundColor(.white)
+                        .cornerRadius(12)
                     }
                 }
-
-                Text("Urgency: \(task.urgency.rawValue)")
-            } header: {
-                Text("Task Info")
-            }
-
-            if task.isLocationSensitive, let loc = task.location {
-                Section {
-                    Text(loc)
-                } header: {
-                    Text("Location")
-                }
-            }
-
-            Section {
-                Text(task.category.rawValue)
-            } header: {
-                Text("Category")
-            }
-
-            Section {
-                Button(role: .destructive) {
-                    deleteTask()
-                } label: {
-                    Label("Delete Task", systemImage: "trash")
-                }
+                .padding(24)
             }
         }
         .navigationTitle("Task Details")
@@ -75,11 +116,11 @@ struct TaskDetailView: View {
     }
 
     private func deleteTask() {
-        if let todayGroupIndex = groupManager.groups.firstIndex(where: { group in
+        if let groupIndex = groupManager.groups.firstIndex(where: { group in
             group.tasks.contains(where: { $0.id == task.id })
         }),
-           let taskIndexInGroup = groupManager.groups[todayGroupIndex].tasks.firstIndex(where: { $0.id == task.id }) {
-            groupManager.groups[todayGroupIndex].tasks.remove(at: taskIndexInGroup)
+           let taskIndexInGroup = groupManager.groups[groupIndex].tasks.firstIndex(where: { $0.id == task.id }) {
+            groupManager.groups[groupIndex].tasks.remove(at: taskIndexInGroup)
         }
 
         presentationMode.wrappedValue.dismiss()

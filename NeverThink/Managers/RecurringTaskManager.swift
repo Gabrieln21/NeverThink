@@ -2,7 +2,7 @@
 //  RecurringTaskManager.swift
 //  NeverThink
 //
-//  Created by Gabriel Fernandez on 4/26/25.
+//  Created by Gabriel Hernandez on 4/26/25.
 //
 
 import Foundation
@@ -13,6 +13,7 @@ class RecurringTaskManager: ObservableObject {
 
     func addTask(_ task: RecurringTask) {
         tasks.append(task)
+        saveToDisk()
     }
 
     func deleteTask(at offsets: IndexSet) {
@@ -21,10 +22,12 @@ class RecurringTaskManager: ObservableObject {
 
     func updateTask(_ task: RecurringTask, at index: Int) {
         tasks[index] = task
+        saveToDisk()
     }
 
     func deleteRecurringTask(at offsets: IndexSet) {
         tasks.remove(atOffsets: offsets)
+        saveToDisk()
     }
 }
 
@@ -34,7 +37,7 @@ extension RecurringTaskManager {
         let today = Date()
 
         var currentDate = today
-        let iterations = 60 // About 2 months !Make a selectale number!!
+        let iterations = 60 // About 2 months !Make this a pickable value!!
 
         for _ in 0..<iterations {
             let weekday = calendar.component(.weekday, from: currentDate) - 1 // Sunday = 0
@@ -87,3 +90,31 @@ extension RecurringTaskManager {
         }
     }
 }
+extension RecurringTaskManager {
+    private var fileURL: URL {
+        let path = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+        return path.appendingPathComponent("recurring_tasks.json")
+    }
+
+    func saveToDisk() {
+        do {
+            let data = try JSONEncoder().encode(tasks)
+            try data.write(to: fileURL)
+            print("✅ Recurring tasks saved to disk")
+        } catch {
+            print("❌ Failed to save recurring tasks: \(error)")
+        }
+    }
+
+    func loadFromDisk() {
+        do {
+            let data = try Data(contentsOf: fileURL)
+            let loaded = try JSONDecoder().decode([RecurringTask].self, from: data)
+            self.tasks = loaded
+            print("✅ Recurring tasks loaded from disk")
+        } catch {
+            print("⚠️ No saved recurring tasks or failed to load: \(error)")
+        }
+    }
+}
+

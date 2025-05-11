@@ -32,7 +32,6 @@ enum UrgencyLevel: String, CaseIterable, Codable {
     case high = "High"
 }
 
-// Urgency Level colors
 import SwiftUI
 
 extension UrgencyLevel {

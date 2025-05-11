@@ -2,7 +2,7 @@
 //  RecurringTask.swift
 //  NeverThink
 //
-//  Created by Gabriel Fernandez on 4/26/25.
+//  Created by Gabriel Hernandez on 4/26/25.
 //
 import Foundation
 

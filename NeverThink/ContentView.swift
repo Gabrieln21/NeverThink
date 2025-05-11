@@ -32,5 +32,10 @@ struct ContentView: View {
                 .environmentObject(recurringTaskManager)
                 .environmentObject(groupManager)
         }
+        .onAppear {
+            todayPlanManager.loadFromDisk()
+            groupManager.loadFromDisk()
+            recurringTaskManager.loadFromDisk()
+        }
     }
 }

@@ -41,39 +41,59 @@ struct EditRecurringTaskView: View {
     }
 
     var body: some View {
-        NavigationView {
-            Form {
-                Section(header: Text("Task Info")) {
-                    TextField("Title", text: $title)
+        ZStack {
+            LinearGradient(
+                gradient: Gradient(colors: [
+                    Color(red: 0.85, green: 0.9, blue: 1.0),
+                    Color.white
+                ]),
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+            .ignoresSafeArea()
 
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("Duration:")
-                        HStack {
-                            TextField("Hours", text: $durationHours)
+            ScrollView {
+                VStack(alignment: .leading, spacing: 24) {
+                    Text("Edit Recurring Task")
+                        .font(.largeTitle.bold())
+                        .padding(.top)
+
+                    Group {
+                        Text("Title")
+                            .font(.callout).foregroundColor(.secondary)
+                        TextField("Enter task title", text: $title)
+                            .textFieldStyle(RoundedBorderTextFieldStyle())
+                    }
+
+                    Group {
+                        Text("Duration")
+                            .font(.callout).foregroundColor(.secondary)
+                        HStack(spacing: 12) {
+                            TextField("0", text: $durationHours)
                                 .keyboardType(.numberPad)
-                                .frame(width: 60)
+                                .frame(width: 50)
                                 .textFieldStyle(.roundedBorder)
-                            Text("hours")
-                            TextField("Minutes", text: $durationMinutes)
+                            Text("hrs")
+
+                            TextField("30", text: $durationMinutes)
                                 .keyboardType(.numberPad)
-                                .frame(width: 60)
+                                .frame(width: 50)
                                 .textFieldStyle(.roundedBorder)
-                            Text("minutes")
+                            Text("min")
                         }
                     }
 
-                    Toggle("Time-sensitive", isOn: $isTimeSensitive)
+                    Group {
+                        Toggle("Time Sensitive", isOn: $isTimeSensitive)
 
-                    if isTimeSensitive {
-                        Picker("Time Sensitivity", selection: $timeSensitivityType) {
-                            ForEach(TimeSensitivity.allCases) { type in
-                                Text(type.rawValue)
-                                    .tag(type)
+                        if isTimeSensitive {
+                            Picker("Time Sensitivity", selection: $timeSensitivityType) {
+                                ForEach(TimeSensitivity.allCases) { type in
+                                    Text(type.rawValue).tag(type)
+                                }
                             }
-                        }
-                        .pickerStyle(SegmentedPickerStyle())
+                            .pickerStyle(.segmented)
 
-                        Group {
                             if timeSensitivityType == .dueBy {
                                 DatePicker("Due by", selection: $exactTime, displayedComponents: [.hourAndMinute])
                             } else if timeSensitivityType == .startsAt {
@@ -83,11 +103,11 @@ struct EditRecurringTaskView: View {
                                 DatePicker("End Time", selection: $endTime, displayedComponents: [.hourAndMinute])
                             }
                         }
-                        .id(timeSensitivityType)
                     }
 
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("Task Importance:")
+                    Group {
+                        Text("Urgency")
+                            .font(.callout).foregroundColor(.secondary)
                         Picker("", selection: $urgency) {
                             ForEach(UrgencyLevel.allCases, id: \.self) {
                                 Text($0.rawValue)
@@ -95,38 +115,48 @@ struct EditRecurringTaskView: View {
                         }
                         .pickerStyle(SegmentedPickerStyle())
                     }
-                }
 
-                Section(header: Text("Location")) {
-                    Toggle("🏠 At Home?", isOn: $isAtHome)
+                    Group {
+                        Text("Location")
+                            .font(.callout).foregroundColor(.secondary)
 
-                    if !isAtHome {
-                        Toggle("🛫 Anywhere?", isOn: $isAnywhere)
+                        Toggle("🏠 At Home?", isOn: $isAtHome)
 
-                        if !isAnywhere {
-                            TextField("Enter Address", text: $location)
+                        if !isAtHome {
+                            Toggle("🛫 Anywhere?", isOn: $isAnywhere)
+
+                            if !isAnywhere {
+                                TextField("Enter Address", text: $location)
+                                    .textFieldStyle(RoundedBorderTextFieldStyle())
+                            }
                         }
                     }
-                }
 
-                Section(header: Text("Recurrence")) {
-                    Picker("Repeats", selection: $recurringInterval) {
-                        ForEach(RecurringInterval.allCases) { interval in
-                            Text(interval.rawValue)
-                                .tag(interval)
+                    Group {
+                        Text("Recurrence")
+                            .font(.callout).foregroundColor(.secondary)
+
+                        Picker("Repeats", selection: $recurringInterval) {
+                            ForEach(RecurringInterval.allCases) { interval in
+                                Text(interval.rawValue)
+                                    .tag(interval)
+                            }
                         }
+                        .pickerStyle(SegmentedPickerStyle())
                     }
-                    .pickerStyle(SegmentedPickerStyle())
-                }
 
-                Section {
-                    Button("Save Changes") {
-                        saveEdits()
+                    Button(action: saveEdits) {
+                        Text("Save Changes")
+                            .frame(maxWidth: .infinity)
+                            .padding()
+                            .background(title.isEmpty || (!isAtHome && !isAnywhere && location.isEmpty) ? Color.gray : Color.accentColor)
+                            .foregroundColor(.white)
+                            .cornerRadius(12)
                     }
-                    .fontWeight(.bold)
+                    .disabled(title.isEmpty || (!isAtHome && !isAnywhere && location.isEmpty))
                 }
+                .padding(24)
             }
-            .navigationTitle("Edit Recurring Task")
         }
     }
 
@@ -140,8 +170,7 @@ struct EditRecurringTaskView: View {
             isTimeSensitive: isTimeSensitive,
             timeSensitivityType: timeSensitivityType,
             exactTime: isTimeSensitive && (timeSensitivityType == .startsAt || timeSensitivityType == .dueBy)
-            ? (timeSensitivityType == .startsAt ? exactTime : exactTime)
-                : nil,
+                ? exactTime : nil,
             timeRangeStart: isTimeSensitive && timeSensitivityType == .busyFromTo ? exactTime : nil,
             timeRangeEnd: isTimeSensitive && timeSensitivityType == .busyFromTo ? endTime : nil,
             urgency: urgency,
