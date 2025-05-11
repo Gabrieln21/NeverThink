@@ -1,72 +1,65 @@
-//
-//  RecurringTasksView.swift
-//  NeverThink
-//
-//  Created by Gabriel Fernandez on 4/26/25.
-//
 import SwiftUI
 
 struct RecurringTasksView: View {
     @EnvironmentObject var recurringManager: RecurringTaskManager
     @EnvironmentObject var groupManager: TaskGroupManager
+
     @State private var showAddRecurring = false
     @State private var selectedFilter: RecurringInterval? = nil
 
     var body: some View {
-        NavigationView {
-            VStack {
-                filterButtons
+        NavigationStack {
+            ZStack {
+                LinearGradient(
+                    gradient: Gradient(colors: [
+                        Color(red: 0.85, green: 0.9, blue: 1.0),
+                        Color.white
+                    ]),
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+                .ignoresSafeArea()
 
-                List {
-                    ForEach(filteredTasks.indices, id: \.self) { index in
-                        let task = filteredTasks[index]
-                        NavigationLink(destination: RecurringTaskDetailView(task: task, taskIndex: index)
-                            .environmentObject(recurringManager)
-                        ) {
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text(task.title)
-                                    .font(.headline)
-                                if task.isTimeSensitive {
-                                    switch task.timeSensitivityType {
-                                    case .dueBy:
-                                        if let dueBy = task.exactTime {
-                                            Text("\(task.recurringInterval.rawValue) • Due by \(dueBy.formatted(date: .omitted, time: .shortened))")
-                                                .font(.caption)
-                                                .foregroundColor(.gray)
-                                        }
-                                    case .startsAt:
-                                        if let startsAt = task.exactTime {
-                                            Text("\(task.recurringInterval.rawValue) • Starts at \(startsAt.formatted(date: .omitted, time: .shortened))")
-                                                .font(.caption)
-                                                .foregroundColor(.gray)
-                                        }
-                                    case .busyFromTo:
-                                        if let start = task.timeRangeStart, let end = task.timeRangeEnd {
-                                            Text("\(task.recurringInterval.rawValue) • \(start.formatted(date: .omitted, time: .shortened))–\(end.formatted(date: .omitted, time: .shortened))")
-                                                .font(.caption)
-                                                .foregroundColor(.gray)
-                                        }
-                                    case .none:
-                                        EmptyView()
+                VStack(spacing: 16) {
+                    filterButtons
+                        .padding(.top, 10)
+
+                    if filteredTasks.isEmpty {
+                        Spacer()
+                        VStack(spacing: 12) {
+                            Image(systemName: "arrow.clockwise.circle.fill")
+                                .font(.system(size: 50))
+                                .foregroundColor(.gray.opacity(0.5))
+                            Text("No Recurring Tasks")
+                                .font(.title3)
+                                .foregroundColor(.gray)
+                        }
+                        Spacer()
+                    } else {
+                        ScrollView {
+                            LazyVStack(spacing: 16) {
+                                ForEach(filteredTasks.indices, id: \.self) { index in
+                                    let task = filteredTasks[index]
+                                    NavigationLink(destination: RecurringTaskDetailView(task: task, taskIndex: index)
+                                        .environmentObject(recurringManager)) {
+                                        recurringTaskCard(task)
                                     }
-                                } else {
-                                    Text("\(task.recurringInterval.rawValue)")
-                                        .font(.caption)
-                                        .foregroundColor(.gray)
+                                    .buttonStyle(PlainButtonStyle())
                                 }
+                                .onDelete(perform: deleteRecurringTask)
                             }
+                            .padding(.horizontal)
+                            .padding(.bottom, 40)
                         }
                     }
-                    .onDelete(perform: deleteRecurringTask)
                 }
-                .listStyle(.plain)
             }
-            .navigationTitle("🔁 Recurring Tasks")
+            .navigationTitle("Recurring Tasks")
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    Button(action: {
+                    Button {
                         showAddRecurring = true
-                    }) {
+                    } label: {
                         Image(systemName: "plus")
                     }
                 }
@@ -81,7 +74,7 @@ struct RecurringTasksView: View {
 
     private var filterButtons: some View {
         ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 8) {
+            HStack(spacing: 10) {
                 filterButton(title: "All", type: nil)
                 filterButton(title: "Daily", type: .daily)
                 filterButton(title: "Weekly", type: .weekly)
@@ -89,7 +82,6 @@ struct RecurringTasksView: View {
                 filterButton(title: "Yearly", type: .yearly)
             }
             .padding(.horizontal)
-            .padding(.top, 10)
         }
     }
 
@@ -98,20 +90,68 @@ struct RecurringTasksView: View {
             selectedFilter = type
         }) {
             Text(title)
-                .font(.subheadline.weight(.semibold)) // smaller and cleaner text
-                .padding(.vertical, 8)
+                .font(.subheadline.weight(.medium))
+                .foregroundColor(selectedFilter == type ? .white : .accentColor)
+                .padding(.vertical, 6)
                 .padding(.horizontal, 14)
-                .background(selectedFilter == type ? Color.accentColor.opacity(0.15) : Color(.systemGray6))
-                .foregroundColor(selectedFilter == type ? .accentColor : .primary)
-                .clipShape(Capsule())
+                .background(
+                    selectedFilter == type
+                    ? Color.accentColor
+                    : Color.clear
+                )
                 .overlay(
                     Capsule()
-                        .stroke(selectedFilter == type ? Color.accentColor : Color(.systemGray4), lineWidth: 1)
+                        .stroke(Color.accentColor, lineWidth: 1.5)
                 )
-                .fixedSize(horizontal: true, vertical: false) // Prevent ugly line breaks
+                .clipShape(Capsule())
         }
     }
 
+
+
+    private func recurringTaskCard(_ task: RecurringTask) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(task.title)
+                .font(.headline)
+                .foregroundColor(.primary)
+
+            if task.isTimeSensitive {
+                switch task.timeSensitivityType {
+                case .dueBy:
+                    if let dueBy = task.exactTime {
+                        Text("\(task.recurringInterval.rawValue) • Due by \(dueBy.formatted(date: .omitted, time: .shortened))")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                case .startsAt:
+                    if let startsAt = task.exactTime {
+                        Text("\(task.recurringInterval.rawValue) • Starts at \(startsAt.formatted(date: .omitted, time: .shortened))")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                case .busyFromTo:
+                    if let start = task.timeRangeStart, let end = task.timeRangeEnd {
+                        Text("\(task.recurringInterval.rawValue) • \(start.formatted(date: .omitted, time: .shortened))–\(end.formatted(date: .omitted, time: .shortened))")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                case .none:
+                    EmptyView()
+                }
+            } else {
+                Text("\(task.recurringInterval.rawValue)")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+        }
+        .padding()
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: 16)
+                .fill(Color.white.opacity(0.9))
+                .shadow(color: Color.black.opacity(0.08), radius: 5, x: 0, y: 4)
+        )
+    }
 
     private var filteredTasks: [RecurringTask] {
         if let filter = selectedFilter {
@@ -121,8 +161,7 @@ struct RecurringTasksView: View {
         }
     }
 
-    func deleteRecurringTask(at offsets: IndexSet) {
-        // Delete from full list, not filtered list
+    private func deleteRecurringTask(at offsets: IndexSet) {
         let mappedOffsets = IndexSet(offsets.map { index in
             recurringManager.tasks.firstIndex(where: { $0.id == filteredTasks[index].id }) ?? index
         })

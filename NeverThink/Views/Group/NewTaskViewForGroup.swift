@@ -1,13 +1,15 @@
 import SwiftUI
 
-struct NewRecurringTaskView: View {
-    @EnvironmentObject var recurringManager: RecurringTaskManager
+struct NewTaskViewForGroup: View {
     @EnvironmentObject var groupManager: TaskGroupManager
     @Environment(\.presentationMode) var presentationMode
 
+    var groupId: UUID
+    @Binding var tasks: [UserTask]
+
     @State private var title: String = ""
     @State private var durationHours: String = "0"
-    @State private var durationMinutes: String = "0"
+    @State private var durationMinutes: String = "30"
     @State private var isTimeSensitive: Bool = false
     @State private var timeSensitivityType: TimeSensitivity = .startsAt
     @State private var exactTime: Date = Date()
@@ -15,10 +17,9 @@ struct NewRecurringTaskView: View {
     @State private var endTime: Date = Date()
     @State private var urgency: UrgencyLevel = .medium
     @State private var isAtHome: Bool = true
-    @State private var isAnywhere: Bool = true
+    @State private var isAnywhere: Bool = false
     @State private var location: String = ""
-    @State private var recurringInterval: RecurringInterval = .daily
-    @State private var selectedWeekdays: Set<Int> = []
+    @State private var selectedDate: Date = Date()
 
     var body: some View {
         ZStack {
@@ -34,31 +35,43 @@ struct NewRecurringTaskView: View {
 
             ScrollView {
                 VStack(alignment: .leading, spacing: 24) {
-                    Text("New Recurring Task")
+                    Text("New Group Task")
                         .font(.largeTitle.bold())
                         .padding(.top)
 
                     Group {
                         Text("Title")
-                            .font(.callout).foregroundColor(.secondary)
+                            .font(.callout)
+                            .foregroundColor(.secondary)
                         TextField("Enter task title", text: $title)
                             .textFieldStyle(RoundedBorderTextFieldStyle())
+                    }
+                    // 🆕 DATE PICKER
+                    Group {
+                        Text("Date")
+                            .font(.callout)
+                            .foregroundColor(.secondary)
+                        DatePicker("Pick a date for this task", selection: $selectedDate, displayedComponents: .date)
+                            .datePickerStyle(.compact)
                     }
 
                     Group {
                         Text("Duration")
-                            .font(.callout).foregroundColor(.secondary)
+                            .font(.callout)
+                            .foregroundColor(.secondary)
                         HStack(spacing: 12) {
                             TextField("0", text: $durationHours)
                                 .keyboardType(.numberPad)
                                 .frame(width: 50)
                                 .textFieldStyle(.roundedBorder)
+
                             Text("hrs")
 
-                            TextField("0", text: $durationMinutes)
+                            TextField("30", text: $durationMinutes)
                                 .keyboardType(.numberPad)
                                 .frame(width: 50)
                                 .textFieldStyle(.roundedBorder)
+
                             Text("min")
                         }
                     }
@@ -87,18 +100,21 @@ struct NewRecurringTaskView: View {
 
                     Group {
                         Text("Task Importance")
-                            .font(.callout).foregroundColor(.secondary)
+                            .font(.callout)
+                            .foregroundColor(.secondary)
                         Picker("", selection: $urgency) {
-                            ForEach(UrgencyLevel.allCases, id: \.self) {
-                                Text($0.rawValue)
+                            ForEach(UrgencyLevel.allCases, id: \.self) { level in
+                                Text(level.rawValue)
                             }
                         }
-                        .pickerStyle(SegmentedPickerStyle())
+                        .pickerStyle(.segmented)
                     }
 
                     Group {
                         Text("Location")
-                            .font(.callout).foregroundColor(.secondary)
+                            .font(.callout)
+                            .foregroundColor(.secondary)
+
                         Toggle("🏠 At Home?", isOn: $isAtHome)
 
                         if !isAtHome {
@@ -111,47 +127,9 @@ struct NewRecurringTaskView: View {
                         }
                     }
 
-                    Group {
-                        Text("Recurring Interval")
-                            .font(.callout).foregroundColor(.secondary)
-                        Picker("Repeat every:", selection: $recurringInterval) {
-                            ForEach(RecurringInterval.allCases) { interval in
-                                Text(interval.rawValue).tag(interval)
-                            }
-                        }
-                        .pickerStyle(SegmentedPickerStyle())
 
-                        if recurringInterval == .weekly {
-                            HStack {
-                                ForEach(0..<7, id: \.self) { index in
-                                    let letters = ["S", "M", "T", "W", "T", "F", "S"]
-                                    Button(action: {
-                                        if selectedWeekdays.contains(index) {
-                                            selectedWeekdays.remove(index)
-                                        } else {
-                                            selectedWeekdays.insert(index)
-                                        }
-                                    }) {
-                                        Text(letters[index])
-                                            .font(.headline)
-                                            .frame(width: 32, height: 32)
-                                            .background(selectedWeekdays.contains(index) ? Color.blue : Color.clear)
-                                            .foregroundColor(selectedWeekdays.contains(index) ? .white : .blue)
-                                            .clipShape(Circle())
-                                            .overlay(
-                                                Circle()
-                                                    .stroke(Color.blue, lineWidth: 2)
-                                            )
-                                    }
-                                    .buttonStyle(PlainButtonStyle())
-                                }
-                            }
-                            .padding(.top, 4)
-                        }
-                    }
-
-                    Button(action: saveRecurringTask) {
-                        Text("Save Recurring Task")
+                    Button(action: saveTask) {
+                        Text("Save Task")
                             .frame(maxWidth: .infinity)
                             .padding()
                             .background(title.isEmpty || (!isAtHome && !isAnywhere && location.isEmpty) ? Color.gray : Color.accentColor)
@@ -165,18 +143,38 @@ struct NewRecurringTaskView: View {
         }
     }
 
-    func saveRecurringTask() {
+    private func saveTask() {
+        var actualExactTime: Date? = nil
+        var actualStartTime: Date? = nil
+        var actualEndTime: Date? = nil
+        var sensitivityTypeForSaving: TimeSensitivity = .startsAt
+
+        if isTimeSensitive {
+            switch timeSensitivityType {
+            case .dueBy:
+                actualExactTime = exactTime
+                sensitivityTypeForSaving = .dueBy
+            case .startsAt:
+                actualExactTime = startTime
+                sensitivityTypeForSaving = .startsAt
+            case .busyFromTo:
+                actualStartTime = startTime
+                actualEndTime = endTime
+                sensitivityTypeForSaving = .busyFromTo
+            default:
+                break
+            }
+        }
+
         let totalDurationMinutes = (Int(durationHours) ?? 0) * 60 + (Int(durationMinutes) ?? 0)
 
-        let newRecurringTask = RecurringTask(
+        let newTask = UserTask(
+            id: UUID(),
             title: title,
             duration: totalDurationMinutes,
             isTimeSensitive: isTimeSensitive,
-            timeSensitivityType: timeSensitivityType,
-            exactTime: isTimeSensitive ? (timeSensitivityType == .dueBy ? exactTime : nil) : nil,
-            timeRangeStart: isTimeSensitive ? (timeSensitivityType == .busyFromTo ? startTime : nil) : nil,
-            timeRangeEnd: isTimeSensitive ? (timeSensitivityType == .busyFromTo ? endTime : nil) : nil,
             urgency: urgency,
+            isLocationSensitive: !isAtHome,
             location: {
                 if isAtHome {
                     return "Home"
@@ -187,13 +185,15 @@ struct NewRecurringTaskView: View {
                 }
             }(),
             category: .doAnywhere,
-            recurringInterval: recurringInterval,
-            selectedWeekdays: recurringInterval == .weekly ? selectedWeekdays : nil,
-            startTime: isTimeSensitive ? (timeSensitivityType == .startsAt ? startTime : nil) : nil
+            timeSensitivityType: sensitivityTypeForSaving,
+            exactTime: actualExactTime,
+            timeRangeStart: actualStartTime,
+            timeRangeEnd: actualEndTime,
+            date: selectedDate
         )
 
-        recurringManager.addTask(newRecurringTask)
-        recurringManager.generateFutureTasks(for: newRecurringTask, into: groupManager)
+        tasks.append(newTask)
+        groupManager.updateTasks(for: groupId, tasks: tasks)
         presentationMode.wrappedValue.dismiss()
     }
 }

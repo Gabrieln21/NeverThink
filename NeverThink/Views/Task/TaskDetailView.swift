@@ -38,7 +38,6 @@ struct TaskDetailView: View {
                     }
                 }
 
-
                 Text("Urgency: \(task.urgency.rawValue)")
             } header: {
                 Text("Task Info")
@@ -69,14 +68,13 @@ struct TaskDetailView: View {
         .navigationTitle("Task Details")
         .toolbar {
             NavigationLink(destination: EditTaskView(taskIndex: taskIndex, task: task)
-                .environmentObject(groupManager)
-            ) {
+                .environmentObject(groupManager)) {
                 Image(systemName: "pencil")
             }
         }
     }
 
-    func deleteTask() {
+    private func deleteTask() {
         if let todayGroupIndex = groupManager.groups.firstIndex(where: { group in
             group.tasks.contains(where: { $0.id == task.id })
         }),

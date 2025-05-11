@@ -25,44 +25,64 @@ struct NewTaskView: View {
     @State private var startTime: Date = Date()
     @State private var endTime: Date = Date()
     @State private var urgency: UrgencyLevel = .medium
-
     @State private var isAtHome: Bool = true
     @State private var isAnywhere: Bool = false
     @State private var location: String = ""
 
     var body: some View {
-        NavigationView {
-            Form {
-                Section(header: Text("Task Info")) {
-                    TextField("Title", text: $title)
+        ZStack {
+            LinearGradient(
+                gradient: Gradient(colors: [
+                    Color(red: 0.85, green: 0.9, blue: 1.0),
+                    Color.white
+                ]),
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+            .ignoresSafeArea()
 
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("Duration:")
-                        HStack {
-                            TextField("Hours", text: $durationHours)
+            ScrollView {
+                VStack(alignment: .leading, spacing: 24) {
+                    Text("New Task")
+                        .font(.largeTitle.bold())
+                        .padding(.top)
+
+                    Group {
+                        Text("Title")
+                            .font(.callout).foregroundColor(.secondary)
+                        TextField("Enter task title", text: $title)
+                            .textFieldStyle(RoundedBorderTextFieldStyle())
+                    }
+
+                    Group {
+                        Text("Duration")
+                            .font(.callout).foregroundColor(.secondary)
+                        HStack(spacing: 12) {
+                            TextField("0", text: $durationHours)
                                 .keyboardType(.numberPad)
-                                .frame(width: 60)
+                                .frame(width: 50)
                                 .textFieldStyle(.roundedBorder)
-                            Text("hours")
-                            TextField("Minutes", text: $durationMinutes)
+                            Text("hrs")
+
+                            TextField("30", text: $durationMinutes)
                                 .keyboardType(.numberPad)
-                                .frame(width: 60)
+                                .frame(width: 50)
                                 .textFieldStyle(.roundedBorder)
-                            Text("minutes")
+                            Text("min")
                         }
                     }
 
-                    Toggle("Time-sensitive", isOn: $isTimeSensitive)
+                    Group {
+                        Toggle("Time Sensitive", isOn: $isTimeSensitive)
 
-                    if isTimeSensitive {
-                        Picker("Time Sensitivity", selection: $timeSensitivityType) {
-                            ForEach(TimeSensitivity.allCases) { type in
-                                Text(type.rawValue).tag(type)
+                        if isTimeSensitive {
+                            Picker("Time Sensitivity", selection: $timeSensitivityType) {
+                                ForEach(TimeSensitivity.allCases) { type in
+                                    Text(type.rawValue).tag(type)
+                                }
                             }
-                        }
-                        .pickerStyle(SegmentedPickerStyle())
+                            .pickerStyle(.segmented)
 
-                        Group {
                             if timeSensitivityType == .dueBy {
                                 DatePicker("Due by", selection: $exactTime, displayedComponents: [.hourAndMinute])
                             } else if timeSensitivityType == .startsAt {
@@ -72,11 +92,11 @@ struct NewTaskView: View {
                                 DatePicker("End Time", selection: $endTime, displayedComponents: [.hourAndMinute])
                             }
                         }
-                        .id(timeSensitivityType)
                     }
 
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("Task Importance:")
+                    Group {
+                        Text("Task Importance")
+                            .font(.callout).foregroundColor(.secondary)
                         Picker("", selection: $urgency) {
                             ForEach(UrgencyLevel.allCases, id: \.self) {
                                 Text($0.rawValue)
@@ -84,39 +104,41 @@ struct NewTaskView: View {
                         }
                         .pickerStyle(SegmentedPickerStyle())
                     }
-                }
 
-                Section(header: Text("Location")) {
-                    Toggle("🏠 At Home?", isOn: $isAtHome)
+                    Group {
+                        Text("Location")
+                            .font(.callout).foregroundColor(.secondary)
 
-                    if !isAtHome {
-                        Toggle("🛫 Anywhere?", isOn: $isAnywhere)
+                        Toggle("🏠 At Home?", isOn: $isAtHome)
 
-                        if !isAnywhere {
-                            TextField("Enter Address", text: $location)
+                        if !isAtHome {
+                            Toggle("🛫 Anywhere?", isOn: $isAnywhere)
+
+                            if !isAnywhere {
+                                TextField("Enter Address", text: $location)
+                                    .textFieldStyle(RoundedBorderTextFieldStyle())
+                            }
                         }
                     }
-                }
 
-                Section {
                     Button(action: saveTask) {
-                        HStack {
-                            Spacer()
-                            Text("Save Task")
-                                .fontWeight(.bold)
-                            Spacer()
-                        }
+                        Text("Save Task")
+                            .frame(maxWidth: .infinity)
+                            .padding()
+                            .background(title.isEmpty || (!isAtHome && !isAnywhere && location.isEmpty) ? Color.gray : Color.accentColor)
+                            .foregroundColor(.white)
+                            .cornerRadius(12)
                     }
                     .disabled(title.isEmpty || (!isAtHome && !isAnywhere && location.isEmpty))
                 }
-            }
-            .navigationTitle("New Task")
-            .onAppear {
-                resetTimesToTargetDate()
+                .padding(24)
             }
         }
+        .onAppear {
+            resetTimesToTargetDate()
+        }
     }
-    
+
     private func resetTimesToTargetDate() {
         let calendar = Calendar.current
 
@@ -127,13 +149,15 @@ struct NewTaskView: View {
 
         if !isTimeSensitive { return }
 
-        if timeSensitivityType == .startsAt {
+        switch timeSensitivityType {
+        case .startsAt:
             startTime = adjust(startTime)
-        } else if timeSensitivityType == .dueBy {
+        case .dueBy:
             exactTime = adjust(exactTime)
-        } else if timeSensitivityType == .busyFromTo {
+        case .busyFromTo:
             startTime = adjust(startTime)
             endTime = adjust(endTime)
+        default: break
         }
     }
 
@@ -158,8 +182,7 @@ struct NewTaskView: View {
                 actualStartTime = startTime
                 actualEndTime = endTime
                 sensitivityTypeForSaving = .busyFromTo
-            case .none:
-                sensitivityTypeForSaving = .none
+            default: break
             }
         }
 
@@ -190,7 +213,6 @@ struct NewTaskView: View {
         )
 
         groupManager.addTask(newTask)
-
         presentationMode.wrappedValue.dismiss()
     }
 }

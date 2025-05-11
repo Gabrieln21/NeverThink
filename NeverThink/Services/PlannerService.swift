@@ -146,10 +146,15 @@ class PlannerService: NSObject, CLLocationManagerDelegate {
         Problems with AI plan: Often uses the wrong time for tasks set with an exact time… You didn’t include the travel back to school for the databases class…. Sometimes tasks are skipped, this should never happen.
 
         You are given a list of tasks with these attributes:
-        - Duration
+        - Duration - length in minutes of the task
         - Urgency level
-        - Time sensitivity (due-by, starts-at, or busy range)
+        - Time Sensitivity Type:
+          - `dueBy`: Task must be completed **before** the provided time. The time is in the `exactTime` field.
+          - `startsAt`: Task must start **exactly at** the provided `exactTime`.
+          - `busyFromTo`: Task must start **at or after** `timeRangeStart` and **end before** `timeRangeEnd`. Cannot exceed this window.
+
         - Location sensitivity (Home, Anywhere, Specific Address)
+          -Keep in mind acronyms like `SFSU` may be used this means `San Francisco State University` keep an eye out for others like this
 
         ---
         🎯 **Your Mission**: 
@@ -177,8 +182,18 @@ class PlannerService: NSObject, CLLocationManagerDelegate {
         - **Busy From-To Tasks**:
           - Must **fully fit inside** their specified time window without overlapping.
 
-        - **Duration Integrity**:
-          - Every task must fit its full duration unless absolutely impossible — if shortened, explain why in the "reason".
+        📈 **Energy and Flow Management**:
+
+        - Insert **Free Time** blocks for any open gap of **≥30 minutes**.
+        - Free Time blocks are important for pacing, resting, and maintaining productivity.
+
+        - Every task must be at least **5 minutes long**. Do not include zero-minute tasks.
+        - Every task must include a **start and end time**. These must be clearly visible in the output.
+        - Tasks must be **ordered logically**, with high urgency and time-sensitive tasks first.
+        - Low-urgency or recreational tasks like "Game" should be **placed later in the day** or around breaks.
+        - Every task must include a short but specific **reason** (e.g., "Preparing for presentation", "Must submit by 11:59 PM", not just "important").
+
+
 
         ---
 
@@ -216,23 +231,34 @@ class PlannerService: NSObject, CLLocationManagerDelegate {
             "end_time": "08:15 AM",
             "title": "Travel to Dentist",
             "notes": "15 min drive to 123 Main St.",
-            "reason": "Leaving early to ensure punctual arrival for 8:30 AM appointment."
+            "reason": "Leaving early to ensure punctual arrival.",
+            "urgency": "Low",
+            "timeSensitivityType": "startsAt",
+            "location": "123 Main St."
           },
           {
             "start_time": "08:30 AM",
             "end_time": "09:00 AM",
             "title": "Dentist Appointment",
-            "notes": "Location: 123 Main St. Urgency: High.",
-            "reason": "Important health-related appointment prioritized early."
+            "notes": "Health-related appointment.",
+            "reason": "Prioritized for importance.",
+            "urgency": "High",
+            "timeSensitivityType": "startsAt",
+            "location": "Home"
           },
           {
             "start_time": "09:00 AM",
             "end_time": "09:30 AM",
             "title": "Free Time",
-            "notes": "No scheduled tasks during this window.",
-            "reason": "Allowing time to rest and recharge between activities."
+            "notes": "Open gap in the schedule.",
+            "reason": "Allows rest between tasks.",
+            "urgency": "Low",
+            "timeSensitivityType": "none",
+            "location": "Anywhere"
           }
         ]
+        If any task is 0 minutes or missing a time frame, your plan will be considered a failure.
+
 
         🚫 **NO markdown formatting, NO explanations outside the JSON array. Only the raw JSON array.**
         
@@ -303,17 +329,21 @@ class PlannerService: NSObject, CLLocationManagerDelegate {
         let data = Data(jsonString.utf8)
 
         do {
-            let rawTasks = try JSONDecoder().decode([PlannedTask].self, from: data)
+            var rawTasks = try JSONDecoder().decode([PlannedTask].self, from: data)
 
-            let normalizedDate = Calendar.current.startOfDay(for: selectedDate)
+            for i in 0..<rawTasks.count {
+                guard let start = DateFormatter.parseTimeString(rawTasks[i].start_time),
+                      let end = DateFormatter.parseTimeString(rawTasks[i].end_time) else {
+                    continue
+                }
 
-            let updatedTasks = rawTasks.map { rawTask in
-                var task = rawTask
-                task.date = normalizedDate
-                return task
+
+                let duration = Int(end.timeIntervalSince(start) / 60)
+                rawTasks[i].duration = max(duration, 0) // avoid negative/zero durations
+                rawTasks[i].date = Calendar.current.startOfDay(for: selectedDate)
             }
 
-            return updatedTasks
+            return rawTasks
 
         } catch {
             throw NSError(domain: "PlannerService", code: 3, userInfo: [
@@ -321,4 +351,5 @@ class PlannerService: NSObject, CLLocationManagerDelegate {
             ])
         }
     }
+
 }

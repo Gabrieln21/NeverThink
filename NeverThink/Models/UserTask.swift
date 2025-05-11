@@ -2,7 +2,7 @@
 //  UserTask.swift
 //  NeverThink
 //
-//  Created by Gabriel Fernandez on 4/25/25.
+//  Created by Gabriel Hernandez on 4/25/25.
 //
 
 import Foundation
@@ -30,6 +30,21 @@ enum UrgencyLevel: String, CaseIterable, Codable {
     case low = "Low"
     case medium = "Medium"
     case high = "High"
+}
+
+import SwiftUI
+
+extension UrgencyLevel {
+    var color: Color {
+        switch self {
+        case .low:
+            return .green
+        case .medium:
+            return .orange
+        case .high:
+            return .red
+        }
+    }
 }
 
 enum TaskCategory: String, CaseIterable, Codable {
