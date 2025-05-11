@@ -11,6 +11,7 @@ struct TaskCardView: View {
     let showDateWarning: Bool
     let onDelete: (() -> Void)?
     let onTap: (() -> Void)?
+    
 
 
     var body: some View {
@@ -26,11 +27,11 @@ struct TaskCardView: View {
                         .font(.headline)
                         .foregroundColor(.primary)
 
-                    if let timeText = timeRangeText {
-                        Text(timeText)
-                            .font(.caption2)
-                            .foregroundColor(.gray)
-                    }
+                    Text(timeRangeText?.isEmpty == false ? timeRangeText! : "TBD – TBD")
+                        .font(.caption2)
+                        .foregroundColor(.gray)
+
+
 
                     if let date = date {
                         Text("\(date.formatted(date: .abbreviated, time: .omitted)) • \(duration) min")

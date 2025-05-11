@@ -278,6 +278,7 @@ struct PlannerView: View {
         }
     }
 
+
     private func regeneratePlan() {
         guard let group = selectedGroup else { return }
         isLoading = true

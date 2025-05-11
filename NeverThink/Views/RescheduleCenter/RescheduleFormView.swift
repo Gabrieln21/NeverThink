@@ -68,7 +68,7 @@ struct RescheduleFormView: View {
         updatedTask.exactTime = newTime
         updatedTask.urgency = urgency
 
-        // Update inside groupManager
+        // Update groupManager
         if let todayGroupIndex = groupManager.groups.firstIndex(where: { group in
             group.tasks.contains(where: { $0.id == task.id })
         }),

@@ -173,9 +173,9 @@ struct NewRecurringTaskView: View {
             duration: totalDurationMinutes,
             isTimeSensitive: isTimeSensitive,
             timeSensitivityType: timeSensitivityType,
-            exactTime: isTimeSensitive ? (timeSensitivityType == .dueBy ? exactTime : nil) : nil,
-            timeRangeStart: isTimeSensitive ? (timeSensitivityType == .busyFromTo ? startTime : nil) : nil,
-            timeRangeEnd: isTimeSensitive ? (timeSensitivityType == .busyFromTo ? endTime : nil) : nil,
+            exactTime: isTimeSensitive && (timeSensitivityType == .startsAt || timeSensitivityType == .dueBy) ? (timeSensitivityType == .startsAt ? startTime : exactTime) : nil,
+            timeRangeStart: isTimeSensitive && timeSensitivityType == .busyFromTo ? startTime : nil,
+            timeRangeEnd: isTimeSensitive && timeSensitivityType == .busyFromTo ? endTime : nil,
             urgency: urgency,
             location: {
                 if isAtHome {
@@ -188,9 +188,9 @@ struct NewRecurringTaskView: View {
             }(),
             category: .doAnywhere,
             recurringInterval: recurringInterval,
-            selectedWeekdays: recurringInterval == .weekly ? selectedWeekdays : nil,
-            startTime: isTimeSensitive ? (timeSensitivityType == .startsAt ? startTime : nil) : nil
+            selectedWeekdays: recurringInterval == .weekly ? selectedWeekdays : nil
         )
+
 
         recurringManager.addTask(newRecurringTask)
         recurringManager.generateFutureTasks(for: newRecurringTask, into: groupManager)

@@ -16,7 +16,7 @@ struct HomeAddressView: View {
             // Background Gradient
             LinearGradient(
                 gradient: Gradient(colors: [
-                    Color(red: 0.85, green: 0.9, blue: 1.0), // Light pastel blue/lavender
+                    Color(red: 0.85, green: 0.9, blue: 1.0), // Light lavender blue
                     Color.white
                 ]),
                 startPoint: .topLeading,
@@ -33,7 +33,7 @@ struct HomeAddressView: View {
                         .foregroundColor(.primary)
                         .multilineTextAlignment(.center)
 
-                    Text("Your home location helps PlanMee create smarter routes and schedules. This only needs to be set once.")
+                    Text("Your home location helps NeverThink create smarter routes and schedules. This only needs to be set once.")
                         .font(.system(size: 17, weight: .medium, design: .rounded))
                         .foregroundColor(.secondary)
                         .multilineTextAlignment(.center)

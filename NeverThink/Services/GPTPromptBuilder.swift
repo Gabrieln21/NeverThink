@@ -25,7 +25,7 @@ struct GPTPromptBuilder {
         prompt += "Today is \(todayFormatted).\n"
         prompt += "You must schedule the following tasks before the final deadline: \(lastDeadlineFormatted).\n\n"
 
-        // existing scheduled events
+        // User's existing scheduled events
         prompt += "Here are the user's already scheduled events:\n"
         if scheduledEvents.isEmpty {
             prompt += "- None scheduled yet.\n"

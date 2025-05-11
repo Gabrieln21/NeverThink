@@ -30,8 +30,17 @@ struct EditTaskView: View {
         _durationMinutes = State(initialValue: "\(task.duration % 60)")
         _isTimeSensitive = State(initialValue: task.isTimeSensitive)
         _timeSensitivityType = State(initialValue: task.timeSensitivityType)
-        _exactTime = State(initialValue: task.exactTime ?? Date())
-        _startTime = State(initialValue: task.timeRangeStart ?? Date())
+        _exactTime = State(initialValue: task.timeSensitivityType == .dueBy ? (task.exactTime ?? Date()) : Date())
+        _startTime = State(initialValue: {
+            switch task.timeSensitivityType {
+            case .startsAt:
+                return task.exactTime ?? Date()
+            case .busyFromTo:
+                return task.timeRangeStart ?? Date()
+            default:
+                return Date()
+            }
+        }())
         _endTime = State(initialValue: task.timeRangeEnd ?? Date())
         _urgency = State(initialValue: task.urgency)
         _isAtHome = State(initialValue: task.location == "Home")
@@ -76,13 +85,34 @@ struct EditTaskView: View {
                         Group {
                             if timeSensitivityType == .dueBy {
                                 DatePicker("Due by", selection: $exactTime, displayedComponents: [.hourAndMinute])
+                                    .onAppear {
+                                        if exactTime != (originalTask.exactTime ?? exactTime) {
+                                            exactTime = originalTask.exactTime ?? exactTime
+                                        }
+                                    }
                             } else if timeSensitivityType == .startsAt {
                                 DatePicker("Starts at", selection: $startTime, displayedComponents: [.hourAndMinute])
+                                    .onAppear {
+                                        if startTime != (originalTask.exactTime ?? startTime) {
+                                            startTime = originalTask.exactTime ?? startTime
+                                        }
+                                    }
                             } else if timeSensitivityType == .busyFromTo {
                                 DatePicker("Start Time", selection: $startTime, displayedComponents: [.hourAndMinute])
+                                    .onAppear {
+                                        if startTime != (originalTask.timeRangeStart ?? startTime) {
+                                            startTime = originalTask.timeRangeStart ?? startTime
+                                        }
+                                    }
                                 DatePicker("End Time", selection: $endTime, displayedComponents: [.hourAndMinute])
+                                    .onAppear {
+                                        if endTime != (originalTask.timeRangeEnd ?? endTime) {
+                                            endTime = originalTask.timeRangeEnd ?? endTime
+                                        }
+                                    }
                             }
                         }
+
                         .id(timeSensitivityType)
                     }
 
@@ -139,7 +169,7 @@ struct EditTaskView: View {
                 actualEndTime = endTime
                 updatedSensitivityType = .busyFromTo
             case .none:
-                // No specific time info needed if its .none
+                // No specific time info needed if it's .none
                 updatedSensitivityType = .none
             }
         }

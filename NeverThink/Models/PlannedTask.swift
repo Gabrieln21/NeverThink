@@ -12,7 +12,7 @@ struct PlannedTask: Codable, Identifiable {
     var duration: Int // minutes
     var urgency: UrgencyLevel
     var timeSensitivityType: TimeSensitivity = .startsAt
-    var location: String? // planned tasks didnt have loc!
+    var location: String?
 
     enum TimeSensitivity: String, Codable, CaseIterable {
         case none
@@ -56,7 +56,7 @@ struct PlannedTask: Codable, Identifiable {
         title = try container.decode(String.self, forKey: .title)
         notes = try container.decodeIfPresent(String.self, forKey: .notes)
         reason = try container.decodeIfPresent(String.self, forKey: .reason)
-        location = try container.decodeIfPresent(String.self, forKey: .location)
+        location = try container.decodeIfPresent(String.self, forKey: .location) // Decode location
         date = Date()
         isCompleted = false
         duration = PlannedTask.calculateDuration(from: start_time, to: end_time)

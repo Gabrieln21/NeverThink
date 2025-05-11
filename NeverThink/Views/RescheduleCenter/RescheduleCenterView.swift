@@ -166,7 +166,7 @@ struct RescheduleCenterView: View {
     // --- Helper Functions ---
 
     private func isTaskConflict(_ task: UserTask) -> Bool {
-        // implement real time conflict checking here
+        // TODO: implement real time conflict checking here
         return false
     }
 
@@ -177,7 +177,6 @@ struct RescheduleCenterView: View {
             selectedTasks.insert(task.id)
         }
     }
-    
 
     private func getScheduledEvents(start: Date, end: Date) -> [UserTask] {
         return groupManager.allTasks.filter { task in
@@ -222,6 +221,7 @@ struct RescheduleCenterView: View {
                 showReviewScreen = true
 
                 
+                // Next step: Pass aiResponse into AIRescheduleReviewView
                 print("✅ Received AI Plan:\n\(aiResponse)")
             } catch {
                 isLoadingAIPlan = false

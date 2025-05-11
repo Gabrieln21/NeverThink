@@ -13,7 +13,6 @@ struct EditRecurringTaskView: View {
     @State private var isTimeSensitive: Bool
     @State private var timeSensitivityType: TimeSensitivity
     @State private var exactTime: Date
-    @State private var startTime: Date
     @State private var endTime: Date
     @State private var urgency: UrgencyLevel
     @State private var isAtHome: Bool
@@ -32,7 +31,6 @@ struct EditRecurringTaskView: View {
         _isTimeSensitive = State(initialValue: task.isTimeSensitive)
         _timeSensitivityType = State(initialValue: task.timeSensitivityType)
         _exactTime = State(initialValue: task.exactTime ?? Date())
-        _startTime = State(initialValue: task.timeRangeStart ?? Date())
         _endTime = State(initialValue: task.timeRangeEnd ?? Date())
         _urgency = State(initialValue: task.urgency)
         _isAtHome = State(initialValue: task.location == "Home")
@@ -79,9 +77,9 @@ struct EditRecurringTaskView: View {
                             if timeSensitivityType == .dueBy {
                                 DatePicker("Due by", selection: $exactTime, displayedComponents: [.hourAndMinute])
                             } else if timeSensitivityType == .startsAt {
-                                DatePicker("Starts at", selection: $startTime, displayedComponents: [.hourAndMinute])
+                                DatePicker("Starts at", selection: $exactTime, displayedComponents: [.hourAndMinute])
                             } else if timeSensitivityType == .busyFromTo {
-                                DatePicker("Start Time", selection: $startTime, displayedComponents: [.hourAndMinute])
+                                DatePicker("Start Time", selection: $exactTime, displayedComponents: [.hourAndMinute])
                                 DatePicker("End Time", selection: $endTime, displayedComponents: [.hourAndMinute])
                             }
                         }
@@ -141,9 +139,11 @@ struct EditRecurringTaskView: View {
             duration: totalDurationMinutes,
             isTimeSensitive: isTimeSensitive,
             timeSensitivityType: timeSensitivityType,
-            exactTime: isTimeSensitive ? exactTime : nil,
-            timeRangeStart: isTimeSensitive ? startTime : nil,
-            timeRangeEnd: isTimeSensitive ? endTime : nil,
+            exactTime: isTimeSensitive && (timeSensitivityType == .startsAt || timeSensitivityType == .dueBy)
+            ? (timeSensitivityType == .startsAt ? exactTime : exactTime)
+                : nil,
+            timeRangeStart: isTimeSensitive && timeSensitivityType == .busyFromTo ? exactTime : nil,
+            timeRangeEnd: isTimeSensitive && timeSensitivityType == .busyFromTo ? endTime : nil,
             urgency: urgency,
             location: {
                 if isAtHome {
@@ -155,7 +155,8 @@ struct EditRecurringTaskView: View {
                 }
             }(),
             category: category,
-            recurringInterval: recurringInterval
+            recurringInterval: recurringInterval,
+            selectedWeekdays: originalTask.selectedWeekdays
         )
 
         recurringManager.updateTask(updatedTask, at: taskIndex)

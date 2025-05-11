@@ -29,10 +29,6 @@ struct RecurringTask: Identifiable, Codable {
     var category: TaskCategory
     var recurringInterval: RecurringInterval
     var selectedWeekdays: Set<Int>? = nil
-    var startTime: Date? = nil
-
-
-
 }
 
 
