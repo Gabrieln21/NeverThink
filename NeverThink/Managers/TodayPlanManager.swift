@@ -22,11 +22,18 @@ class TodayPlanManager: ObservableObject {
         let normalizedDate = Calendar.current.startOfDay(for: date)
         return todayPlansByDate[normalizedDate] ?? []
     }
+    
+    func hasPlan(for date: Date) -> Bool {
+        let normalizedDate = Calendar.current.startOfDay(for: date)
+        return !(todayPlansByDate[normalizedDate]?.isEmpty ?? true)
+    }
+
 
     func clearTodayPlan(for date: Date) {
         let normalizedDate = Calendar.current.startOfDay(for: date)
         todayPlansByDate.removeValue(forKey: normalizedDate)
     }
+
 
     func updateTask(_ task: PlannedTask) {
         let normalizedDate = Calendar.current.startOfDay(for: task.date)
@@ -37,15 +44,43 @@ class TodayPlanManager: ObservableObject {
             todayPlansByDate[normalizedDate] = tasksForDate
         }
     }
+    
+    func removeTaskById(_ id: UUID) {
+        for (date, tasks) in todayPlansByDate {
+            if let index = tasks.firstIndex(where: { $0.id == id.uuidString }) {
+                var updatedTasks = tasks
+                updatedTasks.remove(at: index)
+                todayPlansByDate[date] = updatedTasks
+            }
+        }
+    }
+
+
+    func replaceOrInsertTask(_ task: PlannedTask) {
+        let normalizedDate = Calendar.current.startOfDay(for: task.date)
+        if var tasksForDate = todayPlansByDate[normalizedDate] {
+            if let index = tasksForDate.firstIndex(where: { $0.id == task.id }) {
+                tasksForDate[index] = task
+            } else {
+                tasksForDate.append(task)
+            }
+            todayPlansByDate[normalizedDate] = tasksForDate
+        } else {
+            todayPlansByDate[normalizedDate] = [task]
+        }
+    }
+
 
     func markTaskCompleted(_ task: PlannedTask) {
-        let day = Calendar.current.startOfDay(for: Date())
+        let day = Calendar.current.startOfDay(for: task.date)
         if var tasks = todayPlansByDate[day],
            let index = tasks.firstIndex(where: { $0.id == task.id }) {
             tasks[index].isCompleted = true
             todayPlansByDate[day] = tasks
+            saveToDisk()
         }
     }
+
 
     @MainActor
     func replaceAllTasks(for date: Date, with newTasks: [PlannedTask]) {
@@ -55,7 +90,7 @@ class TodayPlanManager: ObservableObject {
         }
     }
 
-    // Persistence
+    // MARK: - Persistence
 
     private func saveToDisk() {
         let encoder = JSONEncoder()

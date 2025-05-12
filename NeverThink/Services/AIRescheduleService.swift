@@ -28,18 +28,23 @@ struct AIRescheduleService {
                 [
                     "role": "system",
                     "content": """
-                    You are a helpful scheduling assistant. Return your response as a JSON array of scheduled tasks.
+                    You are a helpful scheduling assistant. Your job is to schedule only the tasks provided under 'Here are the tasks' based on the user's time constraints and urgency.
 
-                    Each task should look like this:
+                    Do not include any events from 'scheduled events' or use them in your output — they are just for context to avoid conflicts.
+
+                    Each scheduled task should be returned in this format:
+
                     {
                       "id": "UUID-string-matching-the-task-id",
                       "title": "Task title",
                       "start_time": "ISO8601 datetime string",
                       "duration": number (in minutes),
-                      "urgency": "Low" | "Medium" | "High"
+                      "urgency": "Low" | "Medium" | "High",
+                      "location": "String (or 'Anywhere')",
+                      "timeSensitivityType": "startsAt" | "dueBy" 
                     }
 
-                    Only respond with valid JSON.
+                    ✅ Only return a JSON array of these scheduled tasks. Do not include any explanation, markdown, or commentary — just the JSON array.
                     """
                 ],
                 [
@@ -49,6 +54,7 @@ struct AIRescheduleService {
             ],
             "temperature": 0.7
         ]
+
 
         print("🧪 Attempting to serialize request body")
         do {

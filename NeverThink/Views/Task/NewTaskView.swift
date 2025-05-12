@@ -1,13 +1,23 @@
 import SwiftUI
 
 enum TimeSensitivity: String, CaseIterable, Identifiable, Codable {
-    case none = "None"
-    case dueBy = "Due by"
-    case startsAt = "Starts at"
-    case busyFromTo = "Busy from-to"
+    case none = "none"
+    case dueBy = "dueBy"
+    case startsAt = "startsAt"
+    case busyFromTo = "busyFromTo"
 
     var id: String { self.rawValue }
+
+    var displayName: String {
+        switch self {
+        case .none: return "None"
+        case .dueBy: return "Due by"
+        case .startsAt: return "Starts at"
+        case .busyFromTo: return "Busy from-to"
+        }
+    }
 }
+
 
 struct NewTaskView: View {
     @EnvironmentObject var groupManager: TaskGroupManager

@@ -46,7 +46,6 @@ struct NewTaskViewForGroup: View {
                         TextField("Enter task title", text: $title)
                             .textFieldStyle(RoundedBorderTextFieldStyle())
                     }
-                    // 🆕 DATE PICKER
                     Group {
                         Text("Date")
                             .font(.callout)

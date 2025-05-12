@@ -13,6 +13,13 @@ struct RescheduleCenterView: View {
     @State private var tasksForDeadline: [UserTask] = []
     @State private var showReviewScreen = false
     @State private var aiGeneratedPlan: String = ""
+    @State private var showOptimizationModal = false
+    @State private var taskToEdit: UserTask?
+    @State private var showTaskEditor = false
+    @State private var refreshID = UUID()
+
+
+
 
     var body: some View {
         NavigationStack {
@@ -80,41 +87,34 @@ struct RescheduleCenterView: View {
                                     if selectMode {
                                         toggleSelect(task)
                                     } else {
-                                        selectedTask = task
+                                        taskToEdit = task
+                                        showTaskEditor = true
                                     }
                                 }
                             }
                         }
                         .padding(.bottom, 20)
                     }
-
-                    VStack(spacing: 14) {
-                        Button(action: { startOptimization(allTasks: true) }) {
-                            Text("✨ AI Optimize All Tasks")
-                                .frame(maxWidth: .infinity)
-                                .padding()
-                                .background(Color.accentColor)
-                                .foregroundColor(.white)
-                                .cornerRadius(12)
-                        }
-
-                        Button(action: {
-                            if selectMode {
-                                startOptimization(allTasks: false)
-                            } else {
-                                selectMode = true
+                    .id(refreshID)
+                    Button {
+                        showOptimizationModal = true
+                    } label: {
+                        Text("✨ AI Optimize Tasks")
+                            .frame(maxWidth: .infinity)
+                            .padding()
+                            .background(Color.accentColor)
+                            .foregroundColor(.white)
+                            .cornerRadius(12)
+                    }
+                    .padding(.horizontal)
+                    .sheet(isPresented: $showOptimizationModal) {
+                        AIOptimizationModalView(
+                            tasks: rescheduleQueue,
+                            onConfirm: { selected in
+                                tasksForDeadline = selected
+                                showDeadlineScreen = true
                             }
-                        }) {
-                            Text(selectMode ? "✔️ Optimize Selected Tasks" : "🖐️ Select Specific Tasks")
-                                .frame(maxWidth: .infinity)
-                                .padding()
-                                .background(Color.white)
-                                .foregroundColor(.accentColor)
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 12)
-                                        .stroke(Color.accentColor, lineWidth: 1.5)
-                                )
-                        }
+                        )
                     }
                     .padding(.horizontal)
                     .padding(.bottom)
@@ -155,14 +155,64 @@ struct RescheduleCenterView: View {
                 }
                 .id(UUID()) // Force refresh
             })
+            .sheet(isPresented: $showTaskEditor) {
+                editorSheetContent
+            }
         }
     }
 
     // Helper Functions
 
     private func isTaskConflict(_ task: UserTask) -> Bool {
-        return false // Replace with real logic
+        let allScheduled = groupManager.allTasks.filter {
+            $0.id != task.id && $0.exactTime != nil
+        }
+
+        func overlaps(_ startA: Date, _ durationA: Int, _ startB: Date, _ durationB: Int) -> Bool {
+            let endA = startA.addingTimeInterval(TimeInterval(durationA * 60))
+            let endB = startB.addingTimeInterval(TimeInterval(durationB * 60))
+            return startA < endB && endA > startB
+        }
+
+        // Case 1: startsAt
+        if let taskStart = task.exactTime {
+            for scheduled in allScheduled {
+                if let scheduledStart = scheduled.exactTime {
+                    if overlaps(taskStart, task.duration, scheduledStart, scheduled.duration) {
+                        return true
+                    }
+                }
+            }
+        }
+
+        // Case 2: busyFromTo
+        else if let rangeStart = task.timeRangeStart,
+                let rangeEnd = task.timeRangeEnd {
+            let latestStart = rangeEnd.addingTimeInterval(TimeInterval(-task.duration * 60))
+
+            var earliestConflict = false
+            var latestConflict = false
+
+            for scheduled in allScheduled {
+                if let scheduledStart = scheduled.exactTime {
+                    if overlaps(rangeStart, task.duration, scheduledStart, scheduled.duration) {
+                        earliestConflict = true
+                    }
+                    if overlaps(latestStart, task.duration, scheduledStart, scheduled.duration) {
+                        latestConflict = true
+                    }
+                }
+            }
+
+            if earliestConflict && latestConflict {
+                return true // No safe placement
+            }
+        }
+
+        return false
     }
+
+
 
     private func toggleSelect(_ task: UserTask) {
         if selectedTasks.contains(task.id) {
@@ -191,6 +241,7 @@ struct RescheduleCenterView: View {
         print("🧭 Showing deadline screen for \(tasksForDeadline.count) tasks")
 
     }
+    
     private func applyAIPlan(_ response: String) {
         guard let data = response.data(using: .utf8) else {
             print("❌ Failed to convert response to data")
@@ -227,31 +278,29 @@ struct RescheduleCenterView: View {
                     updated.urgency = gpt.urgency
                     groupManager.groups[groupIndex].tasks[taskIndex] = updated
                 } else {
-                    // Create new task and add to calendar
-                    let original = rescheduleQueue.first(where: { $0.id == uuid })
-
+                    // Add new task if it doesn't already exist
                     let newUserTask = UserTask(
                         id: uuid,
                         title: gpt.title,
-                        duration: original?.duration ?? gpt.duration,
+                        duration: gpt.duration,
                         isTimeSensitive: true,
                         urgency: gpt.urgency,
-                        isLocationSensitive: original?.isLocationSensitive ?? false,
-                        location: original?.location ?? "Anywhere", // use original location
-                        category: original?.category ?? .general,
-                        timeSensitivityType: original?.timeSensitivityType ?? .startsAt,
+                        isLocationSensitive: false,
+                        location: "Anywhere",
+                        category: .general,
+                        timeSensitivityType: .startsAt,
                         exactTime: parsedExactTime,
                         timeRangeStart: nil,
                         timeRangeEnd: nil,
                         date: derivedDate,
                         parentRecurringId: nil
                     )
-
                     groupManager.addTask(newUserTask)
                 }
 
-                // Remove from reschedule center
+                // Always remove from reschedule queue, no matter what
                 rescheduleQueue.removeAll(where: { $0.id == uuid })
+                refreshID = UUID()
             }
 
             print("✅ Applied AI plan and updated group manager & reschedule queue.")
@@ -325,8 +374,23 @@ struct RescheduleCenterView: View {
             }
         )
     }
-
-
+    @ViewBuilder
+    private var editorSheetContent: some View {
+        if let editable = taskToEdit {
+            GeneratedTaskEditorView(task: Binding(
+                get: { editable },
+                set: { taskToEdit = $0 }
+            )) {
+                groupManager.manualRescheduleQueue.removeAll { $0.id == editable.id }
+                groupManager.autoConflictQueue.removeAll { $0.id == editable.id }
+                groupManager.addTask(editable)
+                groupManager.saveToDisk()
+                refreshID = UUID()
+            }
+        } else {
+            EmptyView()
+        }
+    }
 }
 
 

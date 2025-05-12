@@ -8,6 +8,20 @@
 import Foundation
 import CoreLocation
 
+private struct PromptTask: Codable {
+    let id: String
+    let title: String
+    var duration: Int
+    let urgency: String
+    let timeSensitivityType: String
+    let start_time: String
+    let end_time: String
+    let location: String
+    let reason: String
+}
+
+
+
 class PlannerService: NSObject, CLLocationManagerDelegate {
     static let shared = PlannerService()
 
@@ -72,13 +86,50 @@ class PlannerService: NSObject, CLLocationManagerDelegate {
             throw NSError(domain: "PlannerService", code: 0, userInfo: [NSLocalizedDescriptionKey: "API Key not configured"])
         }
 
-        let userLocation = try await getCurrentLocation()
+        let userStartAddress = AuthenticationManager.shared.homeAddress
+
+
         let home = AuthenticationManager.shared.homeAddress
 
-        // Build travel hints
+        // 🧠 Build travel hints
         let cleanedTasks = tasks.filter {
             !$0.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && $0.duration > 0
         }
+        print("🧠 Cleaned Tasks to be sent to GPT:")
+        cleanedTasks.forEach { print("• \($0.title) (\($0.duration) min)") }
+
+        let promptTasks: [PromptTask] = cleanedTasks.map { task in
+            var startTime = "TBD"
+            var endTime = "TBD"
+
+            if task.timeSensitivityType == .startsAt, let exact = task.exactTime {
+                startTime = DateFormatter.formatTimeString(exact)
+                endTime = DateFormatter.formatTimeString(exact.addingTimeInterval(TimeInterval(task.duration * 60)))
+            } else if task.timeSensitivityType == .busyFromTo,
+                      let start = task.timeRangeStart,
+                      let end = task.timeRangeEnd {
+                startTime = DateFormatter.formatTimeString(start)
+                endTime = DateFormatter.formatTimeString(end)
+            }
+
+            return PromptTask(
+                id: task.id.uuidString, // <-- Ensure `id` goes into the prompt
+                title: task.title,
+                duration: task.duration,
+                urgency: task.urgency.rawValue,
+                timeSensitivityType: task.timeSensitivityType.rawValue,
+                start_time: startTime,
+                end_time: endTime,
+                location: task.location ?? "N/A",
+                reason: "TBD"
+            )
+        }
+
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.prettyPrinted, .withoutEscapingSlashes]
+        let formattedTasksData = try encoder.encode(promptTasks)
+        let formattedTasksJSON = String(data: formattedTasksData, encoding: .utf8)!
+
 
         guard !cleanedTasks.isEmpty else {
             throw NSError(
@@ -89,13 +140,32 @@ class PlannerService: NSObject, CLLocationManagerDelegate {
         }
 
         print("🧠 STARTING TRAVEL MATRIX BUILD...")
-        let travelHints = try await buildTravelMatrix(
-            from: userLocation,
-            tasks: cleanedTasks,
-            home: home,
-            mode: transportMode
-        )
+        
+        let travelHints = try await buildTravelMatrix(fromAddress: userStartAddress, tasks: cleanedTasks, home: home, mode: transportMode)
+
         print("✅ FINISHED TRAVEL MATRIX")
+        // 🧠 Decide whether to suppress the initial travel block if very short
+        let firstTask = cleanedTasks.first(where: { $0.isLocationSensitive && ($0.location?.isEmpty == false) })
+        var skipInitialTravel = false
+
+        if let firstTaskLocation = firstTask?.location {
+            do {
+                let travelToFirst = try await TravelService.shared.fetchTravelTime(
+                    from: userStartAddress,
+                    to: firstTaskLocation,
+                    mode: transportMode,
+                    arrivalTime: Date().addingTimeInterval(3600)
+                )
+
+                if travelToFirst.durationMinutes < 8 {
+                    print("✅ Travel duration is short enough — skipping initial travel block.")
+                    skipInitialTravel = true
+                }
+            } catch {
+                print("⚠️ Could not evaluate initial travel duration: \(error.localizedDescription)")
+            }
+        }
+
 
 
         
@@ -108,59 +178,6 @@ class PlannerService: NSObject, CLLocationManagerDelegate {
             ])
         }
 
-
-
-        let formattedTasks = cleanedTasks.map { task -> String in
-            let calendar = Calendar.current
-            var assumedStartTime: Date?
-
-            if task.isTimeSensitive {
-                switch task.timeSensitivityType {
-                case .startsAt:
-                    assumedStartTime = task.exactTime
-                case .dueBy:
-                    if let dueTime = task.exactTime {
-                        assumedStartTime = calendar.date(byAdding: .minute, value: -(task.duration), to: dueTime)
-                    }
-                case .busyFromTo:
-                    assumedStartTime = task.timeRangeStart
-                case .none:
-                    break
-                }
-            }
-
-            var result = """
-            Title: \(task.title)
-            Duration: \(task.duration) minutes
-            Urgency: \(task.urgency.rawValue)
-            Time Sensitivity: \(task.isTimeSensitive ? "Yes" : "No")
-            Time Sensitivity Type: \(task.isTimeSensitive ? task.timeSensitivityType.rawValue : "N/A")
-            """
-
-            if let assumedStartTime = assumedStartTime {
-                result += "\nAssumed Start Time: \(DateFormatter.localizedString(from: assumedStartTime, dateStyle: .none, timeStyle: .short))"
-            }
-            if task.timeSensitivityType == .dueBy, let time = task.exactTime {
-                result += "\nDue By: \(DateFormatter.localizedString(from: time, dateStyle: .none, timeStyle: .short))"
-            }
-            if task.timeSensitivityType == .startsAt, let time = task.exactTime {
-                result += "\nStarts At: \(DateFormatter.localizedString(from: time, dateStyle: .none, timeStyle: .short))"
-            }
-            if task.timeSensitivityType == .busyFromTo,
-               let start = task.timeRangeStart,
-               let end = task.timeRangeEnd {
-                result += "\nBusy From: \(DateFormatter.localizedString(from: start, dateStyle: .none, timeStyle: .short)) to \(DateFormatter.localizedString(from: end, dateStyle: .none, timeStyle: .short))"
-            }
-
-            result += """
-            
-            Location Sensitive: \(task.isLocationSensitive ? "Yes" : "No")
-            Location: \(task.isLocationSensitive ? (task.location ?? "N/A") : "N/A")
-            Category: \(task.category.rawValue)
-            """
-
-            return result
-        }.joined(separator: "\n\n")
 
         let dateString = DateFormatter.localizedString(from: date, dateStyle: .medium, timeStyle: .none)
         let currentTime = DateFormatter.localizedString(from: Date(), dateStyle: .medium, timeStyle: .short)
@@ -177,49 +194,74 @@ class PlannerService: NSObject, CLLocationManagerDelegate {
         You are an intelligent personal assistant planning times for tasks strategically for a real person's day.
 
         📍 Context:
-        - User’s starting location: Latitude \(userLocation.latitude), Longitude \(userLocation.longitude)
+        - User’s starting location: "\(userStartAddress)"
         - Home address: "\(homeAddress)" — tasks labeled "Home" happen here.
         - Transportation method: **\(transportMode)**
         - Current time: \(currentTime) (for context only — do NOT use this as the start time)
         - You will learn the exact planning date from the tasks at the end. This plan is for that day — **not today**.
 
-        🧠 Your Four Core Jobs:
+        🧠 Your Core Responsibilities:
 
-        1. **Schedule All Tasks Intelligently**
-           - Fixed-time tasks must be respected exactly as provided:
-             - `startsAt`: Must begin at the designated time.
-             - `dueBy`: Must be completed **well before** the due time, not at the last possible moment.
-             - `busyFromTo`: Must fully fit inside the specified time window.
-           - Unscheduled tasks must be placed using advanced logic, urgency, and appropriate spacing.
-           - Every task must include:
-             - `"start_time"` and `"end_time"` in `HH:MM AM/PM` format
-             - `"location"`, `"reason"`, `"urgency"`, `"timeSensitivityType"`
-           - Do NOT overlap tasks.
-           - Insert **10 to 20 minutes of buffer** before tasks unless a longer one is clearly justified.
-           - Do NOT insert "TBD" — if no time is given, place it logically based on the schedule and importance.
+        1. **Keep Original Task Data Intact**
+           - You must **preserve all fields exactly as provided** from the original task list, except:
+             - You are allowed to change **`"start_time"` and `"end_time"`** only:
+               - For tasks without a fixed time
+               - Or for `"timeSensitivityType": "dueBy"`
+           - Do **not** change:
+             - `"title"`, `"duration"`, `"urgency"`, `"location"`, `"timeSensitivityType"`
+           - Travel blocks may be inserted but must include **all required fields**, even if guessed:
+             - Use `"urgency": "Low"` and `"timeSensitivityType": "startsAt"` by default.
 
-        2. **Include First Travel Block**
-           - You **must insert a travel block from the user’s current location to the first task** if it’s at a different location.
-           - This travel duration must come directly from the provided travel matrix data.
-           - Do NOT assume the user is already at the first location.
+        2. **Schedule All Tasks Intelligently**
+           - Fixed-time tasks must be respected:
+             - `startsAt`: Start exactly at the given time.
+             - `dueBy`: Finish well before the given time.
+             - `busyFromTo`: Fit fully within the window.
+           - Use urgency, buffer logic, and energy pacing to position other tasks.
+           - Insert **10–20 minutes of buffer** before important tasks.
+           - Do **not** overlap tasks.
+           - Never insert "TBD" — always give a valid time.
 
-        3. **Handle Round-Trip Travel Accurately**
-           - Anytime the user returns home and then goes back out, insert **both** travel blocks:
-             - To home
-             - And then **back to the next task**
-           - Travel must be inserted between any two tasks at different locations — no teleportation.
+        3. **Insert Travel Blocks Logically**
+           - Always insert travel blocks when locations change.
+           - Travel duration must come from the travel matrix below.
+           - If the **first task’s location** is different from the user’s current location, you **must** insert a travel block **before it** using the travel matrix.
+           - If you decide a the user should say go home between tasks, you must inset a travel block home and **INSERT ANOTHER TRAVEL BLOCK TO THE NEXT TASK**
+           - You also **MUST insert a travel block** returning the user home after the last task
+           - This travel block must be the **first item** in the list.
+           - Do **not** assume the user is already at the task location.
+           - Label this block clearly, e.g. `"title": "Travel to [First Task Title]"`, with `"reason": "Starting location is different from first task"`.
+           - Return home and leaving again? Insert **two** travel blocks.
+
+        ‼️ DO NOT insert the final travel block home.
+        - The system will insert the return-home travel block separately in Swift after your response.
+        - You only need to handle travel **between** tasks.
+
+        
+
+
 
         4. **Avoid Over-Buffering**
-           - Do not add more than 20 minutes of early arrival buffer unless explicitly required.
-           - Long idle time (e.g., over 40 min) should only occur for valid reasons (like free time or dinner breaks).
-           - Keep the plan tight and efficient while respecting energy pacing.
+           - Keep the day efficient — avoid idle gaps over 40 minutes unless necessary.
 
         ⚠️ Output Requirements:
-        - You must return ONLY a **valid JSON array** of tasks.
-        - No markdown, comments, headings, or “TBD” values are allowed.
-        - Every task must be complete, logical, and non-overlapping.
-        - All fixed-time durations must be fully respected — do not shorten classes or assignments.
-        - Travel time must be precise and sourced directly from the list below.
+        -Every task must also include the "id" field, which is preserved from the original list of tasks.
+        - Output must be a **valid JSON array** of task objects.
+        - NEVER include trailing commas inside objects or arrays — output must be valid JSON.
+        - Do **not** include markdown, comments, formatting, or explanations.
+        - **Every task, including travel blocks, must include**:
+          - `"start_time"` and `"end_time"` (HH:MM AM/PM)
+          - `"location"`
+          - `"reason"` — even for travel or idle time
+          - `"urgency"`
+          - `"timeSensitivityType"`
+
+        ⚠️ ID Field Requirement:
+        - Every task in your response MUST include the original `"id"` exactly as provided.
+        - Do NOT change or regenerate `"id"`s.
+        - If you omit or alter the `"id"` on any task, it will be treated as INVALID.
+        - Travel blocks do not have IDS
+
 
         ---
 
@@ -228,25 +270,24 @@ class PlannerService: NSObject, CLLocationManagerDelegate {
 
         From [Source Task] → [Destination Task] = [X] min (Depart at: [Time])
 
-        - Use ONLY the `[X] min` duration — **ignore the departure time**
+        - Use **only** the `[X] min` duration
+        - Ignore the "Depart at" time
         - Match by full address or task title
-        - Do NOT invent or estimate travel time — if it’s missing, explain in `"reason"` and skip
+        ‼️ If a travel block is required but no travel data is found:
+
+            Insert it anyway with "duration": 10 and "reason": "Missing travel info"
+
+            NEVER use "duration": 0 — this will be ignored and break the plan
 
         ---
 
-        📦 Task Data Format:
-
-        You will receive a variable called `formattedTasks`. This is a **JSON array of objects**, where each object represents a task. Every task includes structured fields such as:
-
-        ```json
-        {
-          "title": "HCI Class",
-          "duration": 75,
-          "urgency": "High",
-          "timeSensitivityType": "startsAt",
-          "exactTime": "09:30 AM",
-          "location": "1600 Holloway Avenue, San Francisco, CA 94132"
-        }
+        🧠 Use this data to make intelligent scheduling decisions:
+        - Fixed-time tasks are indicated using `exactTime` or `timeRangeStart`/`timeRangeEnd`
+        - You may adjust only `start_time` and `end_time` for flexible or due-by tasks
+        - DO NOT include any of the following fields in your final JSON output:
+          - `exactTime`, `timeRangeStart`, `timeRangeEnd`, `category`, `isLocationSensitive`
+        - Your output must only include the following fields per task:
+          - `"title"`, `"duration"`, `"urgency"`, `"timeSensitivityType"`, `"start_time"`, `"end_time"`, `"location"`, `"reason"`
 
         🧠 Use this data to:
         -Respect fixed times (like "startsAt" at 9:30 AM)
@@ -255,8 +296,9 @@ class PlannerService: NSObject, CLLocationManagerDelegate {
         -Never alter "startsAt" or "busyFromTo" times
         
         📝 Tasks:
-        \(formattedTasks)
-
+        \(formattedTasksJSON)
+        
+        ‼️ INCLUDE EVERY SINGLE ONE OF THESE TASKS IN YOUR RESPONSE, NOT DOING SO WOULD BE FAILURE
         ---
         🚦 Travel Durations Format:
 
@@ -279,6 +321,10 @@ class PlannerService: NSObject, CLLocationManagerDelegate {
 
         🧾 Extra Notes:
         \(extraNotesSection)
+        
+        Your final response must be a pure JSON array of task objects, starting with `[` and ending with `]`. 
+        Do NOT include extra characters, markdown, or text outside the array.
+
         """
 
 
@@ -304,6 +350,10 @@ class PlannerService: NSObject, CLLocationManagerDelegate {
             ],
             "temperature": 0.4
         ]
+        #if DEBUG
+        print("🧠 FINAL GPT PROMPT:\n\(prompt)")
+        #endif
+
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
 
         let (data, response) = try await URLSession.shared.data(for: request)
@@ -335,38 +385,79 @@ class PlannerService: NSObject, CLLocationManagerDelegate {
 
         print("🧠 RAW GPT RESPONSE:\n\(content)")
 
-        let parsedTasks = try Self.parseSchedule(from: content, selectedDate: date)
+        let parsedTasks = try Self.parseSchedule(from: content, selectedDate: date, originalTasks: cleanedTasks)
+        var adjustedTasks = parsedTasks
 
-        // Inject travel blocks
-        let withTravel = Self.insertMissingTravelBlocks(from: parsedTasks, using: travelHints)
+        if skipInitialTravel,
+           let first = adjustedTasks.first,
+           first.title.lowercased().starts(with: "travel to"),
+           let reason = first.reason?.lowercased(),
+           reason.contains("starting location") {
+            
+            print("🧹 Removing first travel block because it's under 8 minutes.")
+            adjustedTasks.removeFirst()
+        }
 
-        // Reposition DueBy tasks if needed
-        let adjustedTasks = Self.repositionDueByTasks(withTravel)
 
-        // Validate travel logic
+        // ✅ Inject travel blocks
+        let withTravel = Self.insertMissingTravelBlocks(from: adjustedTasks, using: travelHints)
+
+
+        // ✅ Reposition DueBy tasks if needed
+        let finalTasks = Self.repositionDueByTasks(withTravel)
+
+
+        // 🔍 Validate travel logic
         let travelWarnings = validateTravelSequence(tasks: adjustedTasks)
+        
+        let uniqueTasks = Dictionary(grouping: finalTasks, by: { $0.id })
+            .compactMap { $0.value.first }
 
-        return adjustedTasks
+        #if DEBUG
+        print("🗓 Final Scheduled Tasks:")
+        for task in uniqueTasks {
+            print("- \(task.title): \(task.start_time) – \(task.end_time)")
+        }
+        #endif
 
+        let sortedTasks = uniqueTasks.sorted {
+            guard let time1 = DateFormatter.parseTimeString($0.start_time),
+                  let time2 = DateFormatter.parseTimeString($1.start_time) else {
+                return false
+            }
+            return time1 < time2
+        }
         if !travelWarnings.isEmpty {
             print("🚨 Travel Logic Issues Found:")
             travelWarnings.forEach { print($0) }
         }
 
-        return parsedTasks
+        return sortedTasks
     }
 
     
 
-    private static func parseSchedule(from response: String, selectedDate: Date) throws -> [PlannedTask] {
+    private static func parseSchedule(from response: String, selectedDate: Date, originalTasks: [UserTask]) throws -> [PlannedTask] {
+
         var cleanedResponse = response.trimmingCharacters(in: .whitespacesAndNewlines)
 
+        // Remove GPT formatting
         if cleanedResponse.hasPrefix("```") {
-            cleanedResponse = cleanedResponse.replacingOccurrences(of: "```json", with: "")
-            cleanedResponse = cleanedResponse.replacingOccurrences(of: "```", with: "")
-            cleanedResponse = cleanedResponse.trimmingCharacters(in: .whitespacesAndNewlines)
+            cleanedResponse = cleanedResponse
+                .replacingOccurrences(of: "```json", with: "")
+                .replacingOccurrences(of: "```", with: "")
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+        
+        // Fallback safety net for malformed but recoverable output
+        if !cleanedResponse.trimmingCharacters(in: .whitespacesAndNewlines).hasPrefix("[") {
+            if let fixed = "[\(cleanedResponse)]".replacingOccurrences(of: "}\n,", with: "},").data(using: .utf8),
+               let decoded = try? JSONDecoder().decode([PlannedTask].self, from: fixed) {
+                return decoded
+            }
         }
 
+        // Locate JSON array
         guard let start = cleanedResponse.firstIndex(of: "["),
               let end = cleanedResponse.lastIndex(of: "]") else {
             throw NSError(domain: "PlannerService", code: 2, userInfo: [
@@ -374,15 +465,44 @@ class PlannerService: NSObject, CLLocationManagerDelegate {
             ])
         }
 
-        let jsonString = String(cleanedResponse[start...end])
+        var jsonString = String(cleanedResponse[start...end])
+
+        // ✅ Fix: Remove all trailing commas in objects and arrays
+        while jsonString.contains(",\n]") || jsonString.contains(",\n}") {
+            jsonString = jsonString.replacingOccurrences(of: ",\n]", with: "\n]")
+            jsonString = jsonString.replacingOccurrences(of: ",\n}", with: "\n}")
+        }
+
         let data = Data(jsonString.utf8)
 
         do {
             var rawTasks = try JSONDecoder().decode([PlannedTask].self, from: data)
 
             for i in 0..<rawTasks.count {
-                let task = rawTasks[i]
-                
+                var task = rawTasks[i]
+
+                // 🚨 Ensure ID is present before trying to match
+                guard !task.id.isEmpty else {
+                    print("🚨 Missing task ID on task: \(task.title)")
+                    continue
+                }
+
+                // 🔒 Enforce fixed times for `startsAt` tasks
+                if task.timeSensitivityType == .startsAt {
+                    if let original = originalTasks.first(where: { $0.id.uuidString == task.id }),
+                       let expected = original.exactTime {
+                        let fixedStart = DateFormatter.formatTimeString(expected)
+                        let fixedEnd = DateFormatter.formatTimeString(expected.addingTimeInterval(TimeInterval(original.duration * 60)))
+                        task.start_time = fixedStart
+                        task.end_time = fixedEnd
+                        task.duration = original.duration
+                    } else {
+                        print("⚠️ Could not find original for startsAt task with id \(task.id)")
+                    }
+                }
+
+                task.date = Calendar.current.startOfDay(for: selectedDate)
+
                 guard let start = DateFormatter.parseTimeString(task.start_time),
                       let end = DateFormatter.parseTimeString(task.end_time),
                       end > start else {
@@ -390,22 +510,17 @@ class PlannerService: NSObject, CLLocationManagerDelegate {
                     continue
                 }
 
-                // INSERT VALIDATION BLOCK
-                if task.timeSensitivityType == .startsAt,
-                   let expected = DateFormatter.parseTimeString(task.start_time),
-                   abs(start.timeIntervalSince(expected)) > 60 {
-                    print("⚠️ Task startsAt time mismatch: \(task.title)")
+                task.duration = Int(end.timeIntervalSince(start) / 60)
+
+                let midnight = Calendar.current.startOfDay(for: selectedDate.addingTimeInterval(86400))
+                if end >= midnight {
+                    print("⚠️ Task \(task.title) ends after midnight. Trimming to 11:59 PM.")
+                    let safeEnd = Calendar.current.date(bySettingHour: 23, minute: 59, second: 0, of: selectedDate)!
+                    task.end_time = DateFormatter.formatTimeString(safeEnd)
+                    task.duration = Int(safeEnd.timeIntervalSince(start) / 60)
                 }
 
-                if task.timeSensitivityType == .dueBy,
-                   let due = DateFormatter.parseTimeString(task.end_time),
-                   end >= due {
-                    print("❌ Task \(task.title) ends after due time!")
-                }
-
-                let duration = Int(end.timeIntervalSince(start) / 60)
-                rawTasks[i].duration = max(duration, 0)
-                rawTasks[i].date = Calendar.current.startOfDay(for: selectedDate)
+                rawTasks[i] = task
             }
 
 
@@ -417,6 +532,7 @@ class PlannerService: NSObject, CLLocationManagerDelegate {
             ])
         }
     }
+
     func validateTravelSequence(tasks: [PlannedTask]) -> [String] {
         var warnings = [String]()
         var lastLocation: String? = nil
@@ -440,78 +556,202 @@ class PlannerService: NSObject, CLLocationManagerDelegate {
     }
     static func repositionDueByTasks(_ tasks: [PlannedTask]) -> [PlannedTask] {
         print("🔁 Repositioning dueBy tasks if they are too close to deadlines...")
-        
-        // TODO logic to reposition tasks
-        return tasks
+
+        var updatedTasks = tasks
+        let bufferThreshold: TimeInterval = 10 * 60 // 10 minutes
+
+        for i in 0..<updatedTasks.count {
+            let task = updatedTasks[i]
+
+            // Only reposition dueBy tasks
+            guard task.timeSensitivityType == .dueBy,
+                  let start = DateFormatter.parseTimeString(task.start_time),
+                  let end = DateFormatter.parseTimeString(task.end_time) else {
+                continue
+            }
+
+            let originalDuration = TimeInterval(task.duration * 60)
+
+            // Check if there's less than 10 min before the deadline
+            if end.timeIntervalSince(start) < originalDuration + bufferThreshold {
+                print("⚠️ Task \"\(task.title)\" is too close to its deadline. Trying to move earlier...")
+
+                // Try to move it earlier by searching backwards
+                var earliestAvailableStart = start
+
+                for j in stride(from: i - 1, through: 0, by: -1) {
+                    let prev = updatedTasks[j]
+                    guard let prevEnd = DateFormatter.parseTimeString(prev.end_time) else { break }
+                    let gap = earliestAvailableStart.timeIntervalSince(prevEnd)
+
+                    if gap >= originalDuration + bufferThreshold {
+                        // Found enough room
+                        let newStart = prevEnd.addingTimeInterval(bufferThreshold)
+                        let newEnd = newStart.addingTimeInterval(originalDuration)
+                        updatedTasks[i].start_time = DateFormatter.formatTimeString(newStart)
+                        updatedTasks[i].end_time = DateFormatter.formatTimeString(newEnd)
+                        print("✅ Moved \"\(task.title)\" earlier to \(updatedTasks[i].start_time) – \(updatedTasks[i].end_time)")
+                        break
+                    }
+
+                    earliestAvailableStart = prevEnd
+                }
+            }
+        }
+
+        return updatedTasks
     }
+
+    private static func extractMinutes(from line: String) -> Int? {
+        let pattern = #"= (\d+) min"#
+        if let match = line.range(of: pattern, options: .regularExpression) {
+            let numberString = line[match].replacingOccurrences(of: "= ", with: "").replacingOccurrences(of: " min", with: "")
+            return Int(numberString)
+        }
+        return nil
+    }
+
 
     static func insertMissingTravelBlocks(from tasks: [PlannedTask], using travelData: String) -> [PlannedTask] {
         var result: [PlannedTask] = []
         var previous: PlannedTask? = nil
 
         func travelDuration(from: String, to: String) -> Int? {
-            let needle = "From \(from) → \(to) = "
-            guard let line = travelData.components(separatedBy: "\n").first(where: { $0.contains(needle) }) else {
-                return nil
+            let allLines = travelData.components(separatedBy: "\n")
+
+            // Try direct match
+            if let line = allLines.first(where: { $0.contains("From \(from) → \(to) =") }) {
+                return extractMinutes(from: line)
             }
-            if let minutes = line.components(separatedBy: "=").last?.trimmingCharacters(in: .whitespaces).components(separatedBy: " ").first,
-               let duration = Int(minutes) {
-                return duration
+
+            // Try flexible match: ignore case, spaces, and punctuation
+            let fromNorm = PlannerService.normalize(from)
+            let toNorm = PlannerService.normalize(to)
+
+            for line in allLines {
+                let lineNorm = PlannerService.normalize(line)
+                if lineNorm.contains("from\(fromNorm)") && lineNorm.contains("to\(toNorm)") {
+                    return extractMinutes(from: line)
+                }
             }
+
+
             return nil
         }
 
         for task in tasks {
+            let isTravel = task.title.lowercased().starts(with: "travel")
+
+            if isTravel {
+                // ✅ Don't insert travel to travel, and don’t re-add
+                result.append(task)
+                previous = task
+                continue
+            }
+
             if let prev = previous,
                let prevLoc = prev.location,
                let currLoc = task.location,
-               prevLoc != currLoc,
-               let duration = travelDuration(from: prev.title, to: task.title) {
+               prevLoc != currLoc {
 
-                let travelTask = PlannedTask(
-                    id: UUID().uuidString,
-                    start_time: prev.end_time,
-                    end_time: DateFormatter.timeStringByAddingMinutes(to: prev.end_time, minutes: duration),
-                    title: "Travel to \(task.title)",
-                    notes: "Auto-inserted travel block",
-                    reason: "Inserted travel from \(prev.title) to \(task.title).",
-                    date: prev.date,
-                    urgency: .low,
-                    timeSensitivityType: .startsAt,
-                    location: task.location ?? "Unknown"
-                )
+                // ✅ Check if previous is already a travel block
+                let prevIsTravel = prev.title.lowercased().starts(with: "travel")
+                if !prevIsTravel {
+                    // 🧠 Avoid duplicate travel blocks
+                    let duration = travelDuration(from: prev.title, to: task.title) ?? 10
 
-                result.append(travelTask)
+                    let travel = PlannedTask(
+                        id: UUID().uuidString,
+                        start_time: prev.end_time,
+                        end_time: DateFormatter.timeStringByAddingMinutes(to: prev.end_time, minutes: duration),
+                        title: "Travel to \(task.title)",
+                        notes: "Auto-generated travel block",
+                        reason: "Location change from \(prev.title) to \(task.title)",
+                        date: task.date,
+                        urgency: .low,
+                        timeSensitivityType: .startsAt,
+                        location: task.location
+                    )
+                    result.append(travel)
+                }
             }
 
             result.append(task)
             previous = task
         }
 
+
+        // ✅ Insert final travel block back home if needed
+        if let last = result.last,
+           let lastLocation = last.location {
+            
+            let normalizedLast = PlannerService.normalize(lastLocation)
+            let normalizedHome = PlannerService.normalize(AuthenticationManager.shared.homeAddress)
+
+            if normalizedLast != normalizedHome {
+                let homeAddress = AuthenticationManager.shared.homeAddress
+                let duration: Int = {
+                    // Try to find exact line: [Last Task Title] → Home
+                    let allLines = travelData.components(separatedBy: "\n")
+                    if let line = allLines.first(where: { entry in
+                        entry.lowercased().contains("\(PlannerService.normalize(last.title)) → home".lowercased())
+                    }) {
+                        return extractMinutes(from: line) ?? 10
+                    }
+                    return 10
+                }()
+
+                let travelBack = PlannedTask(
+                    id: UUID().uuidString,
+                    start_time: last.end_time,
+                    end_time: DateFormatter.timeStringByAddingMinutes(to: last.end_time, minutes: duration),
+                    title: "Travel to Home",
+                    notes: "Auto-inserted final return trip",
+                    reason: "Returning home after final task",
+                    date: last.date,
+                    urgency: .low,
+                    timeSensitivityType: .startsAt,
+                    location: homeAddress
+                )
+                result.append(travelBack)
+            }
+        }
+
         return result
     }
-
+    private static func normalize(_ str: String) -> String {
+        return str.lowercased()
+            .replacingOccurrences(of: "[^a-z0-9]", with: "", options: .regularExpression)
+    }
 
 }
+
+
+
 
 import Foundation
 import CoreLocation
 
 extension PlannerService {
     func buildTravelMatrix(
-        from origin: CLLocationCoordinate2D,
+        fromAddress originAddress: String,
         tasks: [UserTask],
         home: String,
         mode: String
     ) async throws -> String {
-        let originString = "\(origin.latitude),\(origin.longitude)"
+        let originString = originAddress
         let arrivalTime = Date().addingTimeInterval(3600)
         var matrixEntries: [String] = []
         var travelTimeCache = [String: TravelInfo]()
 
-        func cacheKey(_ from: String, _ to: String) -> String {
-            "\(from.lowercased())_TO_\(to.lowercased())"
+        func cacheKey(_ from: String?, _ to: String?) -> String {
+            let normalize: (String?) -> String = {
+                ($0 ?? "").lowercased()
+                    .replacingOccurrences(of: "[^a-z0-9]", with: "", options: .regularExpression)
+            }
+            return "\(normalize(from))_to_\(normalize(to))"
         }
+
 
         func clean(_ s: String?) -> String? {
             guard let trimmed = s?.trimmingCharacters(in: .whitespacesAndNewlines),
@@ -519,43 +759,64 @@ extension PlannerService {
             return trimmed
         }
 
+        let homeClean = clean(home)
         let validTasks = tasks.filter { $0.isLocationSensitive && clean($0.location) != nil }
 
         try await withThrowingTaskGroup(of: String?.self) { group in
             for task in validTasks {
-                guard let to = clean(task.location) else { continue }
+                guard let taskAddress = clean(task.location) else { continue }
 
+                // From origin address → task address
                 group.addTask {
                     let from = originString
-                    let key = cacheKey(from, to)
+                    let to = taskAddress
+                    let key = cacheKey(clean(from), clean(to))
                     if let cached = travelTimeCache[key] {
-                        return "From Current Location → \(task.title) [\(to)] = \(cached.durationMinutes) min (Depart at: \(cached.departureTime))"
+                        return "From \(from) → \(task.title) [\(to)] = \(cached.durationMinutes) min (Depart at: \(cached.departureTime))"
                     }
-
                     do {
                         let info = try await TravelService.shared.fetchTravelTime(from: from, to: to, mode: mode, arrivalTime: arrivalTime)
                         travelTimeCache[key] = info
-                        return "From Current Location → \(task.title) [\(to)] = \(info.durationMinutes) min (Depart at: \(info.departureTime))"
+                        return "From \(from) → \(task.title) [\(to)] = \(info.durationMinutes) min (Depart at: \(info.departureTime))"
                     } catch {
-                        return "⚠️ Failed: Current Location → \(task.title): \(error.localizedDescription)"
+                        return "⚠️ Failed: \(from) → \(task.title): \(error.localizedDescription)"
                     }
                 }
 
-                if let homeClean = clean(home) {
+                // Task → Home
+                if let toHome = homeClean {
                     group.addTask {
-                        let from = to
-                        let toHome = homeClean
-                        let key = cacheKey(from, toHome)
+                        let from = taskAddress
+                        let to = toHome
+                        let key = cacheKey(clean(from), clean(to))
+                        print("🔍 Looking up travelTimeCache with key: \(key)")
                         if let cached = travelTimeCache[key] {
-                            return "\(task.title) → Home [\(toHome)] = \(cached.durationMinutes) min (Depart at: \(cached.departureTime))"
+                            return "\(task.title) → Home [\(to)] = \(cached.durationMinutes) min (Depart at: \(cached.departureTime))"
                         }
 
                         do {
-                            let info = try await TravelService.shared.fetchTravelTime(from: from, to: toHome, mode: mode, arrivalTime: arrivalTime)
+                            let info = try await TravelService.shared.fetchTravelTime(from: from, to: to, mode: mode, arrivalTime: arrivalTime)
                             travelTimeCache[key] = info
-                            return "\(task.title) → Home [\(toHome)] = \(info.durationMinutes) min (Depart at: \(info.departureTime))"
+                            return "\(task.title) → Home [\(to)] = \(info.durationMinutes) min (Depart at: \(info.departureTime))"
                         } catch {
                             return "⚠️ Failed: \(task.title) → Home: \(error.localizedDescription)"
+                        }
+                    }
+
+                    // Home → Task
+                    group.addTask {
+                        let from = toHome
+                        let to = taskAddress
+                        let key = cacheKey(clean(from), clean(to))
+                        if let cached = travelTimeCache[key] {
+                            return "From Home → \(task.title) [\(to)] = \(cached.durationMinutes) min (Depart at: \(cached.departureTime))"
+                        }
+                        do {
+                            let info = try await TravelService.shared.fetchTravelTime(from: from, to: to, mode: mode, arrivalTime: arrivalTime)
+                            travelTimeCache[key] = info
+                            return "From Home → \(task.title) [\(to)] = \(info.durationMinutes) min (Depart at: \(info.departureTime))"
+                        } catch {
+                            return "⚠️ Failed: Home → \(task.title): \(error.localizedDescription)"
                         }
                     }
                 }
@@ -570,7 +831,30 @@ extension PlannerService {
 
         return matrixEntries.joined(separator: "\n")
     }
+
+
+
+    private func reverseGeocode(_ coordinate: CLLocationCoordinate2D) async -> String {
+        let geocoder = CLGeocoder()
+        let location = CLLocation(latitude: coordinate.latitude, longitude: coordinate.longitude)
+        do {
+            let placemarks = try await geocoder.reverseGeocodeLocation(location)
+            if let placemark = placemarks.first {
+                let street = placemark.thoroughfare ?? ""
+                let number = placemark.subThoroughfare ?? ""
+                let city = placemark.locality ?? ""
+                let state = placemark.administrativeArea ?? ""
+                return "\(number) \(street), \(city), \(state)".trimmingCharacters(in: .whitespaces)
+            }
+        } catch {
+            print("🔴 Reverse geocoding failed: \(error.localizedDescription)")
+        }
+        return "Unknown Location"
+    }
 }
+
+
+
 extension DateFormatter {
     static func timeStringByAddingMinutes(to timeString: String, minutes: Int) -> String {
         guard let date = parseTimeString(timeString) else { return timeString }

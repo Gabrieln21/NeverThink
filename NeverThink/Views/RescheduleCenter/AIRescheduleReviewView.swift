@@ -13,6 +13,10 @@ struct AIRescheduleReviewView: View {
     var originalTasks: [UserTask]
     var onAccept: () -> Void
     var onRegenerate: (String) -> Void
+    
+    @EnvironmentObject var todayPlanManager: TodayPlanManager
+    @EnvironmentObject var groupManager: TaskGroupManager
+
 
     @State private var userNotes: String = ""
     @State private var selectedTask: PlannedTask?
@@ -160,7 +164,51 @@ struct AIRescheduleReviewView: View {
 
     private var buttonsSection: some View {
         VStack(spacing: 14) {
-            Button(action: onAccept) {
+            Button(action: {
+                for task in parsedTasks {
+                    if let uuid = UUID(uuidString: task.id) {
+                        groupManager.removeTaskById(uuid)
+
+                        let mappedSensitivity: TimeSensitivity
+                        switch task.timeSensitivityType {
+                        case .startsAt:
+                            mappedSensitivity = .startsAt
+                        case .dueBy:
+                            mappedSensitivity = .dueBy
+                        case .busyFromTo:
+                            mappedSensitivity = .busyFromTo
+                        case .none:
+                            mappedSensitivity = .none
+                        }
+
+                        let category: TaskCategory = (task.location != nil && !task.location!.lowercased().contains("anywhere")) ? .beSomewhere : .doAnywhere
+
+                        let userTask = UserTask(
+                            id: uuid,
+                            title: task.title,
+                            duration: task.duration,
+                            isTimeSensitive: true,
+                            urgency: task.urgency,
+                            isLocationSensitive: task.location != nil,
+                            location: task.location,
+                            category: category,
+                            timeSensitivityType: mappedSensitivity,
+                            exactTime: DateFormatter.iso8601Formatter.date(from: task.start_time),
+                            timeRangeStart: nil,
+                            timeRangeEnd: nil,
+                            date: task.date,
+                            parentRecurringId: nil
+                        )
+
+
+                        groupManager.addTask(userTask)
+                        todayPlanManager.removeTaskById(uuid)
+
+                    }
+                }
+
+                onAccept()
+            }) {
                 Text("✅ Accept This Plan")
                     .frame(maxWidth: .infinity)
                     .padding()
@@ -168,6 +216,9 @@ struct AIRescheduleReviewView: View {
                     .foregroundColor(.white)
                     .cornerRadius(12)
             }
+
+
+
 
             Button(action: { onRegenerate(userNotes) }) {
                 Text("🔄 Regenerate Plan With Notes")

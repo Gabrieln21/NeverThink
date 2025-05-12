@@ -2,12 +2,13 @@
 //  UserTask.swift
 //  NeverThink
 //
-//  Created by Gabriel Hernandez on 4/25/25.
+//  Created by Gabriel Fernandez on 4/25/25.
 //
 
 import Foundation
+import SwiftUI
 
-struct UserTask: Identifiable, Codable, Hashable, Equatable {
+struct UserTask: Identifiable, Codable {
     var id: UUID = UUID()
     var title: String
     var duration: Int
@@ -22,17 +23,26 @@ struct UserTask: Identifiable, Codable, Hashable, Equatable {
     var timeRangeEnd: Date?
     var date: Date?
     var parentRecurringId: UUID? = nil
+    var isCompleted: Bool = false
 }
 
+extension UserTask: Equatable, Hashable {
+    static func == (lhs: UserTask, rhs: UserTask) -> Bool {
+        lhs.id == rhs.id
+    }
 
+    func hash(into hasher: inout Hasher) {
+        hasher.combine(id)
+    }
+}
+
+// MARK: - UrgencyLevel
 
 enum UrgencyLevel: String, CaseIterable, Codable {
     case low = "Low"
     case medium = "Medium"
     case high = "High"
 }
-
-import SwiftUI
 
 extension UrgencyLevel {
     var color: Color {
@@ -47,6 +57,8 @@ extension UrgencyLevel {
     }
 }
 
+// MARK: - TaskCategory
+
 enum TaskCategory: String, CaseIterable, Codable {
     case doAnywhere = "Do Anywhere"
     case beSomewhere = "Be Somewhere"
@@ -56,4 +68,3 @@ enum TaskCategory: String, CaseIterable, Codable {
     case fitness
     case errands
 }
-

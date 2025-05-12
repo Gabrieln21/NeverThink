@@ -39,11 +39,16 @@ struct GPTPromptBuilder {
                 "time": isoFormatter.string(from: time)
             ]
         }
-
+        
         var prompt = "Today is \(isoFormatter.string(from: startDate)).\n"
+        prompt += """
+        IMPORTANT:
+        If two tasks conflict in time, always preserve the more important one (higher urgency), and reschedule the other.
+        Do not remove or move both tasks.
+        """
         prompt += "Schedule the following tasks before \(isoFormatter.string(from: endDate)).\n"
         prompt += "Here are the tasks:\n\(taskList)\n"
-        prompt += "Here are already scheduled events:\n\(eventList)\n"
+        prompt += "Here are already scheduled events for context only (DO NOT include them in your response):\n\(eventList)\n"
         prompt += """
         
     Respond with a JSON array of updated tasks like:

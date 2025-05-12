@@ -196,7 +196,7 @@ struct PlannerView: View {
             let normalizedDate = Calendar.current.startOfDay(for: selectedDate)
             let updatedTasks = generatedPlan.map { task in
                 var newTask = task
-                newTask.date = normalizedDate // set date directly
+                newTask.date = normalizedDate // Set date directly
                 return newTask
             }
 
@@ -348,7 +348,7 @@ struct PlannerView: View {
     }
 }
 
-private struct GeneratedTaskCardView: View {
+private struct PlannerTaskCardView: View {
     let task: PlannedTask
     let onDelete: () -> Void
     let onEdit: () -> Void

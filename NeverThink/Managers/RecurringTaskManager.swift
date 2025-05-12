@@ -2,7 +2,7 @@
 //  RecurringTaskManager.swift
 //  NeverThink
 //
-//  Created by Gabriel Hernandez on 4/26/25.
+//  Created by Gabriel Fernandez on 4/26/25.
 //
 
 import Foundation
@@ -37,7 +37,7 @@ extension RecurringTaskManager {
         let today = Date()
 
         var currentDate = today
-        let iterations = 60 // About 2 months !Make this a pickable value!!
+        let iterations = 60 // About 2 months !Add a selector!!
 
         for _ in 0..<iterations {
             let weekday = calendar.component(.weekday, from: currentDate) - 1 // Sunday = 0

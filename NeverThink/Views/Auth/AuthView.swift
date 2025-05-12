@@ -5,7 +5,7 @@ struct AuthView: View {
 
     var body: some View {
         ZStack {
-            // gradient background
+            // Gradient background
             LinearGradient(
                 gradient: Gradient(colors: [
                     Color(red: 0.85, green: 0.9, blue: 1.0), // Light lavender blue

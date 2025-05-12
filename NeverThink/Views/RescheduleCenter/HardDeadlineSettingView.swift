@@ -6,6 +6,7 @@ struct HardDeadlineSelectionView: View {
 
     @Environment(\.presentationMode) var presentationMode
     @State private var deadlines: [UUID: Date] = [:]
+    @State private var showTimePicker: [UUID: Bool] = [:]
 
     var body: some View {
         NavigationStack {
@@ -31,36 +32,55 @@ struct HardDeadlineSelectionView: View {
                                 .foregroundColor(.gray)
                         } else {
                             ForEach(tasks) { task in
-                                VStack(alignment: .leading, spacing: 8) {
+                                VStack(alignment: .leading, spacing: 12) {
                                     Text(task.title)
                                         .font(.headline)
-                                        .foregroundColor(.primary)
 
-                                    DatePicker(
-                                        "Deadline",
-                                        selection: Binding(
-                                            get: {
-                                                deadlines[task.id] ?? Date()
-                                            },
-                                            set: { newValue in
-                                                deadlines[task.id] = newValue
-                                            }
-                                        ),
-                                        displayedComponents: [.date]
-                                    )
-                                    .datePickerStyle(.compact)
-                                    .labelsHidden()
+                                    HStack {
+                                        DatePicker(
+                                            "",
+                                            selection: Binding(
+                                                get: { deadlines[task.id] ?? Date() },
+                                                set: { deadlines[task.id] = $0 }
+                                            ),
+                                            displayedComponents: [.date]
+                                        )
+                                        .labelsHidden()
+
+                                        Spacer()
+
+                                        Toggle("Exact Time", isOn: Binding(
+                                            get: { showTimePicker[task.id] ?? false },
+                                            set: { showTimePicker[task.id] = $0 }
+                                        ))
+                                        .toggleStyle(SwitchToggleStyle(tint: .accentColor))
+                                        .font(.caption)
+                                    }
+
+                                    if showTimePicker[task.id] ?? false {
+                                        DatePicker(
+                                            "",
+                                            selection: Binding(
+                                                get: { deadlines[task.id] ?? Date() },
+                                                set: { deadlines[task.id] = $0 }
+                                            ),
+                                            displayedComponents: [.hourAndMinute]
+                                        )
+                                        .labelsHidden()
+                                        .datePickerStyle(.compact)
+                                    }
                                 }
                                 .padding()
                                 .background(Color.white.opacity(0.95))
-                                .cornerRadius(12)
+                                .cornerRadius(16)
                                 .shadow(color: Color.black.opacity(0.05), radius: 4, x: 0, y: 2)
+                                .padding(.horizontal, 16)
                             }
                         }
 
                         Spacer(minLength: 30)
 
-                        HStack {
+                        HStack(spacing: 12) {
                             Button("Cancel") {
                                 presentationMode.wrappedValue.dismiss()
                             }
@@ -81,8 +101,10 @@ struct HardDeadlineSelectionView: View {
                             .foregroundColor(.white)
                             .cornerRadius(12)
                         }
+                        .padding(.top, 8)
                     }
-                    .padding(24)
+                    .padding(.horizontal, 20)
+                    .padding(.bottom, 32)
                 }
             }
             .navigationTitle("Set Deadlines")

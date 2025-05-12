@@ -3,6 +3,59 @@ import SwiftUI
 extension Notification.Name {
     static let magicWandTaskSaved = Notification.Name("magicWandTaskSaved")
 }
+struct GeneratedTaskCardView: View {
+    let task: UserTask
+    let onDelete: () -> Void
+    let onTap: () -> Void
+
+    var body: some View {
+        TaskCardView(
+            title: task.title,
+            urgencyColor: task.urgency.color,
+            duration: task.duration,
+            date: task.date,
+            location: task.location,
+            reason: nil,
+            timeRangeText: timeRangeString(for: task),
+            showDateWarning: task.date == nil,
+            onDelete: onDelete,
+            onTap: onTap
+        )
+
+    }
+
+    private func formattedDate(for date: Date?) -> String? {
+        guard let date = date else { return nil }
+        let formatter = DateFormatter()
+        formatter.dateStyle = .medium
+        return formatter.string(from: date)
+    }
+
+    private func timeRangeString(for task: UserTask) -> String? {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "h:mm a"
+        switch task.timeSensitivityType {
+        case .startsAt:
+            if let start = task.exactTime,
+               let end = Calendar.current.date(byAdding: .minute, value: task.duration, to: start) {
+                return "\(formatter.string(from: start)) – \(formatter.string(from: end))"
+            }
+        case .dueBy:
+            if let end = task.exactTime,
+               let start = Calendar.current.date(byAdding: .minute, value: -task.duration, to: end) {
+                return "\(formatter.string(from: start)) – \(formatter.string(from: end))"
+            }
+        case .busyFromTo:
+            if let start = task.timeRangeStart,
+               let end = task.timeRangeEnd {
+                return "\(formatter.string(from: start)) – \(formatter.string(from: end))"
+            }
+        case .none:
+            return nil
+        }
+        return nil
+    }
+}
 
 struct TaskExpansionView: View {
     @EnvironmentObject var todayPlanManager: TodayPlanManager
@@ -18,7 +71,7 @@ struct TaskExpansionView: View {
     var body: some View {
         NavigationView {
             ZStack {
-                // background gradient
+                // Background gradient
                 LinearGradient(
                     gradient: Gradient(colors: [Color(red: 0.9, green: 0.94, blue: 1.0), .white]),
                     startPoint: .topLeading,
@@ -60,15 +113,8 @@ struct TaskExpansionView: View {
                             ScrollView {
                                 VStack(spacing: 16) {
                                     ForEach(generatedTasks.indices, id: \.self) { index in
-                                        TaskCardView(
-                                            title: generatedTasks[index].title,
-                                            urgencyColor: generatedTasks[index].urgency.color,
-                                            duration: generatedTasks[index].duration,
-                                            date: generatedTasks[index].date,
-                                            location: generatedTasks[index].location,
-                                            reason: nil,
-                                            timeRangeText: timeRangeString(for: generatedTasks[index]),
-                                            showDateWarning: generatedTasks[index].date == nil,
+                                        GeneratedTaskCardView(
+                                            task: generatedTasks[index],
                                             onDelete: { generatedTasks.remove(at: index) },
                                             onTap: { selectedTask = generatedTasks[index] }
                                         )
@@ -103,13 +149,21 @@ struct TaskExpansionView: View {
                 }
             }
             .navigationBarTitleDisplayMode(.inline)
-            .sheet(item: $selectedTask) { task in
-                GeneratedTaskEditorView(task: task) { updatedTask in
-                    if let index = generatedTasks.firstIndex(where: { $0.id == updatedTask.id }) {
-                        generatedTasks[index] = updatedTask
+            .sheet(isPresented: Binding<Bool>(
+                get: { selectedTask != nil },
+                set: { if !$0 { selectedTask = nil } }
+            )) {
+                if let idx = generatedTasks.firstIndex(where: { $0.id == selectedTask?.id }) {
+                    GeneratedTaskEditorView(
+                        task: $generatedTasks[idx]
+                    ) {
+                        selectedTask = nil
                     }
+                } else {
+                    Text("Could not find task to edit.")
                 }
             }
+
             .overlay {
                 if isLoading {
                     Color.black.opacity(0.4)
@@ -155,6 +209,13 @@ struct TaskExpansionView: View {
             isLoading = false
         }
     }
+    private func formattedDate(for date: Date?) -> String? {
+        guard let date = date else { return nil }
+        let formatter = DateFormatter()
+        formatter.dateStyle = .medium
+        return formatter.string(from: date)
+    }
+
     
     private func timeRangeString(for task: UserTask) -> String? {
         let formatter = DateFormatter()
@@ -211,7 +272,7 @@ struct TaskExpansionView: View {
 
         generatedTasks = []
         userInput = ""
-        dismiss() // Return Home
+        dismiss() // Return to Home
     }
 }
 

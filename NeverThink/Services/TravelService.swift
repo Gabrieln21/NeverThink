@@ -55,9 +55,13 @@ class TravelService {
             throw URLError(.badServerResponse)
         }
 
-        let json = try JSONSerialization.jsonObject(with: data) as? [String: Any]
+        guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            throw NSError(domain: "TravelService", code: 99, userInfo: [
+                NSLocalizedDescriptionKey: "Failed to decode Google Maps response"
+            ])
+        }
 
-        let status = (json?["status"] as? String) ?? "Unknown"
+        let status = json["status"] as? String ?? "Unknown"
         if status != "OK" {
             print("🛑 Google Maps API status: \(status)")
             print("🔎 Response:\n\(String(data: data, encoding: .utf8) ?? "nil")")
@@ -66,14 +70,14 @@ class TravelService {
             ])
         }
 
-        guard let routes = json?["routes"] as? [[String: Any]],
-              let firstLeg = routes.first?["legs"] as? [[String: Any]],
-              let leg = firstLeg.first,
-              let duration = leg["duration"] as? [String: Any],
-              let durationValue = duration["value"] as? Int,
-              let departureTime = leg["departure_time"] as? [String: Any],
-              let departureText = departureTime["text"] as? String else {
-                  
+        guard
+            let routes = json["routes"] as? [[String: Any]],
+            let firstRoute = routes.first,
+            let legs = firstRoute["legs"] as? [[String: Any]],
+            let firstLeg = legs.first,
+            let duration = firstLeg["duration"] as? [String: Any],
+            let durationValue = duration["value"] as? Int
+        else {
             print("⚠️ Malformed Google Maps response for \(originAddress) → \(destinationAddress)")
             print("🔎 Raw JSON:\n\(String(data: data, encoding: .utf8) ?? "nil")")
             throw NSError(domain: "TravelService", code: 2, userInfo: [
@@ -81,14 +85,18 @@ class TravelService {
             ])
         }
 
+        // Fallback if departure time is missing
+        let departureText = (firstLeg["departure_time"] as? [String: Any])?["text"] as? String ?? "N/A"
+
         let travelInfo = TravelInfo(
             durationMinutes: durationValue / 60,
             departureTime: departureText
         )
 
         travelTimeCache[key] = travelInfo
-        print("🛣️ Route from \(originAddress) → \(destinationAddress): \(travelInfo.durationMinutes) minutes")
+        print("✅ Travel time from \(originAddress) → \(destinationAddress): \(travelInfo.durationMinutes) min")
 
         return travelInfo
     }
+
 }

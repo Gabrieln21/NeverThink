@@ -3,8 +3,8 @@ import SwiftUI
 struct GeneratedTaskEditorView: View {
     @Environment(\.presentationMode) var presentationMode
 
-    @State var task: UserTask
-    var onSave: (UserTask) -> Void
+    @Binding var task: UserTask
+    var onSave: (() -> Void)? = nil
 
     @State private var durationHours: String = "0"
     @State private var durationMinutes: String = "30"
@@ -34,7 +34,7 @@ struct GeneratedTaskEditorView: View {
                             TextField("Enter task title", text: $task.title)
                                 .textFieldStyle(RoundedBorderTextFieldStyle())
                         }
-                        
+
                         Group {
                             DatePicker("Date", selection: Binding(
                                 get: { task.date ?? Date() },
@@ -50,14 +50,11 @@ struct GeneratedTaskEditorView: View {
                                     .keyboardType(.numberPad)
                                     .frame(width: 50)
                                     .textFieldStyle(.roundedBorder)
-
                                 Text("hrs")
-
                                 TextField("30", text: $durationMinutes)
                                     .keyboardType(.numberPad)
                                     .frame(width: 50)
                                     .textFieldStyle(.roundedBorder)
-
                                 Text("min")
                             }
                         }
@@ -72,7 +69,6 @@ struct GeneratedTaskEditorView: View {
                             }
                             .pickerStyle(SegmentedPickerStyle())
                         }
-
 
                         Group {
                             Toggle("Time Sensitive", isOn: $task.isTimeSensitive)
@@ -180,7 +176,7 @@ struct GeneratedTaskEditorView: View {
         let minutes = Int(durationMinutes) ?? 0
         task.duration = (hours * 60) + minutes
 
-        onSave(task)
+        onSave?()
         presentationMode.wrappedValue.dismiss()
     }
 }

@@ -11,8 +11,12 @@ struct TaskCardView: View {
     let showDateWarning: Bool
     let onDelete: (() -> Void)?
     let onTap: (() -> Void)?
-    
 
+    var cleanLocation: String? {
+        guard let location else { return nil }
+        let stripped = location.replacingOccurrences(of: #"(?i),?\s*CA\s*\d{5}(-\d{4})?"#, with: "", options: .regularExpression)
+        return stripped.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
 
     var body: some View {
         Button(action: { onTap?() }) {
@@ -22,34 +26,38 @@ struct TaskCardView: View {
                     .frame(width: 10, height: 10)
                     .padding(.top, 6)
 
-                VStack(alignment: .leading, spacing: 4) {
+                VStack(alignment: .leading, spacing: 6) {
                     Text(title)
                         .font(.headline)
                         .foregroundColor(.primary)
 
-                    Text(timeRangeText?.isEmpty == false ? timeRangeText! : "TBD – TBD")
-                        .font(.caption2)
-                        .foregroundColor(.gray)
-
-
-
                     if let date = date {
-                        Text("\(date.formatted(date: .abbreviated, time: .omitted)) • \(duration) min")
-                            .font(.caption2)
-                            .foregroundColor(.gray)
-                    } else {
-                        Text("⚠️ No date set — will be added to today • \(duration) min")
-                            .font(.caption2)
-                            .foregroundColor(.orange)
+                        if let time = timeRangeText, !time.isEmpty {
+                            Text("📅 \(formattedDate(for: date)) • \(time) • \(duration) min")
+                                .font(.caption2)
+                                .foregroundColor(.gray)
+                        } else {
+                            Text("📅 \(formattedDate(for: date)) • \(duration) min")
+                                .font(.caption2)
+                                .foregroundColor(.gray)
+                        }
                     }
 
-                    if let loc = location, !loc.lowercased().contains("anywhere"), !loc.isEmpty {
+
+
+                    if let loc = cleanLocation, !loc.lowercased().contains("anywhere"), !loc.isEmpty {
                         Text("📍 \(loc)")
                             .font(.caption2)
                             .foregroundColor(.gray)
                     }
 
-                    if let reason = reason, !reason.isEmpty {
+                    if showDateWarning {
+                        Text("⚠️ No date set — added to today")
+                            .font(.caption2)
+                            .foregroundColor(.orange)
+                    }
+
+                    if let reason, !reason.isEmpty {
                         Text(reason)
                             .font(.caption2)
                             .foregroundColor(.gray)
@@ -58,7 +66,7 @@ struct TaskCardView: View {
 
                 Spacer()
 
-                if let onDelete = onDelete {
+                if let onDelete {
                     Button(action: onDelete) {
                         Image(systemName: "xmark.circle.fill")
                             .foregroundColor(.red)
@@ -74,4 +82,10 @@ struct TaskCardView: View {
         }
         .buttonStyle(.plain)
     }
+    private func formattedDate(for date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.dateStyle = .medium
+        return formatter.string(from: date)
+    }
+
 }
