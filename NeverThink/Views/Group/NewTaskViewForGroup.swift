@@ -1,3 +1,9 @@
+//
+//  NewTaskViewForGroup.swift
+//  NeverThink
+//
+//  Created by Gabriel Fernandez on 4/25/25.
+//
 import SwiftUI
 
 struct NewTaskViewForGroup: View {
@@ -20,7 +26,8 @@ struct NewTaskViewForGroup: View {
     @State private var location: String = ""
     @State private var selectedSavedLocationId: UUID? = nil
     @State private var selectedLocationType: LocationType = .home
-    @State private var selectedDate: Date = Date()
+
+    @State private var selectedDate: Date = Date() // 🆕 Date picker state
 
     enum LocationType: Identifiable, Hashable {
         case home
@@ -63,7 +70,7 @@ struct NewTaskViewForGroup: View {
                         TextField("Enter task title", text: $title)
                             .textFieldStyle(RoundedBorderTextFieldStyle())
                     }
-
+                    // 🆕 DATE PICKER
                     Group {
                         Text("Date")
                             .font(.callout)
@@ -223,7 +230,7 @@ struct NewTaskViewForGroup: View {
             exactTime: actualExactTime,
             timeRangeStart: actualStartTime,
             timeRangeEnd: actualEndTime,
-            date: selectedDate
+            date: selectedDate // ✅ SAVE DATE HERE
         )
 
         tasks.append(newTask)

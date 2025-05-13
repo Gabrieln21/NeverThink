@@ -1,3 +1,9 @@
+//
+//  AiOptimizationModalView.swift
+//  NeverThink
+//
+//  Created by Gabriel Fernandez on 5/02/25.
+//
 import SwiftUI
 
 struct AIOptimizationModalView: View {
@@ -11,7 +17,7 @@ struct AIOptimizationModalView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                // gradient background
+                // Light blue gradient background
                 LinearGradient(
                     gradient: Gradient(colors: [
                         Color(red: 0.85, green: 0.9, blue: 1.0),
@@ -94,7 +100,7 @@ struct AIOptimizationModalView: View {
                 }
             }
             .onAppear {
-                selected = Set(tasks.map { $0.id })
+                selected = Set(tasks.map { $0.id }) 
             }
         }
     }

@@ -1,3 +1,7 @@
+//
+//  AuthView.swift
+//  NeverThink
+//
 import SwiftUI
 
 struct AuthView: View {
@@ -5,7 +9,7 @@ struct AuthView: View {
 
     var body: some View {
         ZStack {
-            // Gradient background
+            // Real gradient background
             LinearGradient(
                 gradient: Gradient(colors: [
                     Color(red: 0.85, green: 0.9, blue: 1.0), // Light lavender blue

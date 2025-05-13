@@ -47,6 +47,8 @@ class PlannerService: NSObject, CLLocationManagerDelegate {
     private var locationManager: CLLocationManager?
     private var locationContinuation: CheckedContinuation<CLLocationCoordinate2D, Error>?
     private var currentLocation: CLLocationCoordinate2D?
+    private var locationFetchManager: CLLocationManager?
+    private var locationFetchDelegate: LocationDelegate?
 
     private override init() {
         super.init()
@@ -78,16 +80,22 @@ class PlannerService: NSObject, CLLocationManagerDelegate {
     }
 
     func getCurrentLocation() async throws -> CLLocationCoordinate2D {
-        return try await withCheckedThrowingContinuation { continuation in
-            let manager = CLLocationManager()
-            let delegate = LocationDelegate { location in
-                continuation.resume(returning: location.coordinate)
-            }
-            manager.delegate = delegate
-            manager.requestWhenInUseAuthorization()
-            manager.startUpdatingLocation()
+        print("📍 [getCurrentLocation] Called")
+
+        // Try cached first
+        if let coord = LocationService.shared.currentLocation?.coordinate {
+            print("🎯 [getCurrentLocation] Using shared LocationService coordinate: \(coord)")
+            return coord
         }
+
+        // Else fallback — wait for update
+        throw NSError(domain: "PlannerService", code: 407, userInfo: [
+            NSLocalizedDescriptionKey: "Current location not available yet. Please try again shortly."
+        ])
     }
+
+
+
 
 
 
@@ -123,7 +131,7 @@ class PlannerService: NSObject, CLLocationManagerDelegate {
             }
 
             return PromptTask(
-                id: task.id.uuidString, // <-- Ensure `id` goes into the prompt
+                id: task.id.uuidString,
                 title: task.title,
                 duration: task.duration,
                 urgency: task.urgency.rawValue,
@@ -154,7 +162,7 @@ class PlannerService: NSObject, CLLocationManagerDelegate {
         let travelHints = try await buildTravelMatrix(fromAddress: userStartAddress, tasks: cleanedTasks, home: home, mode: transportMode)
 
         print("✅ FINISHED TRAVEL MATRIX")
-        // Decide whether to suppress the initial travel block if very short
+        
         let firstTask = cleanedTasks.first(where: { $0.isLocationSensitive && ($0.location?.isEmpty == false) })
         var skipInitialTravel = false
 
@@ -477,7 +485,6 @@ class PlannerService: NSObject, CLLocationManagerDelegate {
 
         var jsonString = String(cleanedResponse[start...end])
 
-        // Remove all trailing commas in objects and arrays
         while jsonString.contains(",\n]") || jsonString.contains(",\n}") {
             jsonString = jsonString.replacingOccurrences(of: ",\n]", with: "\n]")
             jsonString = jsonString.replacingOccurrences(of: ",\n}", with: "\n}")
@@ -653,7 +660,6 @@ class PlannerService: NSObject, CLLocationManagerDelegate {
             let isTravel = task.title.lowercased().starts(with: "travel")
 
             if isTravel {
-                // Don't insert travel to travel, and don’t re-add
                 result.append(task)
                 previous = task
                 continue
@@ -667,7 +673,7 @@ class PlannerService: NSObject, CLLocationManagerDelegate {
                 // Check if previous is already a travel block
                 let prevIsTravel = prev.title.lowercased().starts(with: "travel")
                 if !prevIsTravel {
-                    // 🧠 Avoid duplicate travel blocks
+                    // Avoid duplicate travel blocks
                     let duration = travelDuration(from: prev.title, to: task.title) ?? 10
 
                     let travel = PlannedTask(
@@ -749,8 +755,38 @@ extension PlannerService {
         home: String,
         mode: String
     ) async throws -> String {
-        let originCoord = try await getCurrentLocation() // async fresh fetch
-        let originString = "\(originCoord.latitude),\(originCoord.longitude)"
+        print("🚀 [buildTravelMatrix] Starting travel matrix build")
+
+        var originString = AuthenticationManager.shared.homeAddress
+        print("📍 [buildTravelMatrix] Initial originString: \(originString)")
+
+        do {
+            print("🛰️ [buildTravelMatrix] Attempting to get current location...")
+            let originCoord = try await withThrowingTaskGroup(of: CLLocationCoordinate2D.self) { group in
+                group.addTask {
+                    print("🧭 [buildTravelMatrix] getCurrentLocation() task started")
+                    return try await self.getCurrentLocation()
+                }
+
+                group.addTask {
+                    print("⏱️ [buildTravelMatrix] Timeout fallback task started")
+                    try await Task.sleep(nanoseconds: 10 * 1_000_000_000)
+                    throw NSError(domain: "PlannerService", code: 408, userInfo: [NSLocalizedDescriptionKey: "Timeout while retrieving location"])
+                }
+
+                guard let result = try await group.next() else {
+                    throw NSError(domain: "PlannerService", code: 409, userInfo: [NSLocalizedDescriptionKey: "No location result."])
+                }
+
+                group.cancelAll()
+                return result
+            }
+
+            originString = "\(originCoord.latitude),\(originCoord.longitude)"
+            print("✅ [buildTravelMatrix] Got current location: \(originString)")
+        } catch {
+            print("⚠️ [buildTravelMatrix] Failed to get current location: \(error.localizedDescription). Using home address: \(originString)")
+        }
 
         let arrivalTime = Date().addingTimeInterval(3600)
         var matrixEntries: [String] = []
@@ -758,8 +794,7 @@ extension PlannerService {
 
         func cacheKey(_ from: String?, _ to: String?) -> String {
             let normalize: (String?) -> String = {
-                ($0 ?? "").lowercased()
-                    .replacingOccurrences(of: "[^a-z0-9]", with: "", options: .regularExpression)
+                ($0 ?? "").lowercased().replacingOccurrences(of: "[^a-z0-9]", with: "", options: .regularExpression)
             }
             return "\(normalize(from))_to_\(normalize(to))"
         }
@@ -772,48 +807,61 @@ extension PlannerService {
 
         let homeClean = clean(home)
         let validTasks = tasks.filter { $0.isLocationSensitive && clean($0.location) != nil }
+        print("🔍 [buildTravelMatrix] Valid location-sensitive tasks: \(validTasks.count)")
+
+        if validTasks.isEmpty {
+            print("⚠️ [buildTravelMatrix] No valid tasks with location data. Returning early.")
+            return ""
+        }
+
+        print("🧵 [buildTravelMatrix] Launching travel time fetch group...")
 
         try await withThrowingTaskGroup(of: String?.self) { group in
             for task in validTasks {
-                guard let taskAddress = clean(task.location) else { continue }
+                guard let taskAddress = clean(task.location) else {
+                    print("⚠️ [buildTravelMatrix] Skipping task '\(task.title)' due to invalid location")
+                    continue
+                }
 
-                // From current GPS → task address
+                // Current Location → Task
                 group.addTask {
                     let from = originString
                     let to = taskAddress
-                    let key = cacheKey(clean(from), clean(to))
+                    let key = cacheKey(from, to)
+                    print("🌐 [buildTravelMatrix] Fetching: Current Location → \(task.title)")
+
                     if let cached = travelTimeCache[key] {
                         return "From Current Location → \(task.title) [\(to)] = \(cached.durationMinutes) min (Depart at: \(cached.departureTime))"
                     }
+
                     do {
                         let info = try await TravelService.shared.fetchTravelTime(from: from, to: to, mode: mode, arrivalTime: arrivalTime)
                         travelTimeCache[key] = info
                         return "From Current Location → \(task.title) [\(to)] = \(info.durationMinutes) min (Depart at: \(info.departureTime))"
                     } catch {
+                        print("❌ [buildTravelMatrix] Fetch failed: \(from) → \(to): \(error.localizedDescription)")
                         return "⚠️ Failed: \(from) → \(task.title): \(error.localizedDescription)"
                     }
                 }
 
-                // Task → Home
                 if let toHome = homeClean {
+                    // Task → Home
                     group.addTask {
                         let from = taskAddress
                         let to = toHome
-                        let key = cacheKey(clean(from), clean(to))
+                        let key = cacheKey(from, to)
+                        print("🌐 [buildTravelMatrix] Fetching: \(task.title) → Home")
+
                         if let cached = travelTimeCache[key] {
                             return "\(task.title) → Home [\(to)] = \(cached.durationMinutes) min (Depart at: \(cached.departureTime))"
                         }
 
                         do {
-                            let info = try await TravelService.shared.fetchTravelTime(
-                                from: from,
-                                to: to,
-                                mode: mode,
-                                arrivalTime: arrivalTime
-                            )
+                            let info = try await TravelService.shared.fetchTravelTime(from: from, to: to, mode: mode, arrivalTime: arrivalTime)
                             travelTimeCache[key] = info
                             return "\(task.title) → Home [\(to)] = \(info.durationMinutes) min (Depart at: \(info.departureTime))"
                         } catch {
+                            print("❌ [buildTravelMatrix] Fetch failed: \(task.title) → Home: \(error.localizedDescription)")
                             return "⚠️ Failed: \(task.title) → Home: \(error.localizedDescription)"
                         }
                     }
@@ -822,31 +870,42 @@ extension PlannerService {
                     group.addTask {
                         let from = toHome
                         let to = taskAddress
-                        let key = cacheKey(clean(from), clean(to))
+                        let key = cacheKey(from, to)
+                        print("🌐 [buildTravelMatrix] Fetching: Home → \(task.title)")
+
                         if let cached = travelTimeCache[key] {
                             return "From Home → \(task.title) [\(to)] = \(cached.durationMinutes) min (Depart at: \(cached.departureTime))"
                         }
+
                         do {
                             let info = try await TravelService.shared.fetchTravelTime(from: from, to: to, mode: mode, arrivalTime: arrivalTime)
                             travelTimeCache[key] = info
                             return "From Home → \(task.title) [\(to)] = \(info.durationMinutes) min (Depart at: \(info.departureTime))"
                         } catch {
+                            print("❌ [buildTravelMatrix] Fetch failed: Home → \(task.title): \(error.localizedDescription)")
                             return "⚠️ Failed: Home → \(task.title): \(error.localizedDescription)"
                         }
                     }
                 }
             }
 
+            var count = 0
             for try await result in group {
+                count += 1
                 if let entry = result {
                     matrixEntries.append(entry)
+                    print("✅ [buildTravelMatrix] Added matrix entry #\(count): \(entry)")
+                } else {
+                    print("⚠️ [buildTravelMatrix] Null result in matrix entry #\(count)")
                 }
             }
         }
 
+        print("🏁 [buildTravelMatrix] Finished. Total entries: \(matrixEntries.count)")
         return matrixEntries.joined(separator: "\n")
     }
 }
+
 
 
 

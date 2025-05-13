@@ -1,3 +1,9 @@
+//
+//  TodayPlanManager.swift
+//  NeverThink
+//
+//  Created by Gabriel Fernandez on 4/26/25.
+//
 import Foundation
 import SwiftUI
 
@@ -90,7 +96,6 @@ class TodayPlanManager: ObservableObject {
         }
     }
 
-    // Persistence
 
     private func saveToDisk() {
         let encoder = JSONEncoder()

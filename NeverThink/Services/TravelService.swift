@@ -1,3 +1,9 @@
+//
+//  TravelService.swift
+//  NeverThink
+//
+//  Created by Gabriel Fernandez on 4/26/25.
+//
 import Foundation
 import CoreLocation
 
@@ -8,7 +14,7 @@ struct TravelInfo: Decodable {
 
 class TravelService {
     static let shared = TravelService()
-    private let apiKey = "AIzaSyCB_pXJjASuszZqOkVws8SbL9QlNRYMlug"
+    private let apiKey = "AIzaSyA0hNSzHtuScFiYRwyVAp6aUt_NAF8C8T4"
     
     // Caching to prevent duplicate requests
     private var travelTimeCache = [String: TravelInfo]()

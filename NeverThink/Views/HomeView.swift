@@ -1,3 +1,9 @@
+//
+//  HomeView.swift
+//  NeverThink
+//
+//  Created by Gabriel Fernandez on 4/25/25.
+//
 import SwiftUI
 import UserNotifications
 
@@ -70,7 +76,6 @@ struct HomeView: View {
 
                     initialTasksSection
 
-                    // Show completed tasks at the end, with bottom padding if it's the only thing
                     if todayPlannedTasks.isEmpty && todayTasks.isEmpty {
                         completedTasksSection
                             .padding(.top, 80)
@@ -174,7 +179,6 @@ struct HomeView: View {
     private var initialTasksSection: some View {
         if !todayTasks.isEmpty {
             if todayPlanManager.hasPlan(for: selectedDate) {
-                // If AI plan exists, show original tasks in dropdown
                 Section {
                     DisclosureGroup(isExpanded: $showOriginalTasks.animation(.easeInOut)) {
                         ForEach(todayTasks, id: \.id) { task in
@@ -195,7 +199,6 @@ struct HomeView: View {
                 .listRowBackground(Color.clear)
                 .listSectionSeparator(.hidden)
             } else {
-                // If no AI plan, just show original tasks normally
                 Section {
                     ForEach(todayTasks, id: \.id) { task in
                         taskRowWithSwipes(task)
@@ -308,8 +311,8 @@ struct HomeView: View {
         groupManager.manualRescheduleQueue.append(task)
         var updated = task
         updated.isCompleted = true
-        groupManager.updateTask(updated) // make sure this updates in place
-        groupManager.saveToDisk() // persist the change
+        groupManager.updateTask(updated)
+        groupManager.saveToDisk() // persist 
 
     }
 

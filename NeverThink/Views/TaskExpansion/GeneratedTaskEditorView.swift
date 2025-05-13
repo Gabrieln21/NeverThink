@@ -1,3 +1,9 @@
+//
+//  GeneratedTaskEditorView.swift
+//  NeverThink
+//
+//  Created by Gabriel Fernandez on 5/01/25.
+//
 import SwiftUI
 
 struct GeneratedTaskEditorView: View {

@@ -1,3 +1,9 @@
+//
+//  PlannedTask.swift
+//  NeverThink
+//
+//  Created by Gabriel Fernandez on 4/26/25.
+//
 import Foundation
 
 struct PlannedTask: Codable, Identifiable {
@@ -66,7 +72,6 @@ struct PlannedTask: Codable, Identifiable {
         urgency = try container.decodeIfPresent(UrgencyLevel.self, forKey: .urgency) ?? .medium
         timeSensitivityType = try container.decodeIfPresent(TimeSensitivity.self, forKey: .timeSensitivityType) ?? .startsAt
 
-        // calculate duration if missing
         if let providedDuration = try container.decodeIfPresent(Int.self, forKey: .duration) {
             duration = providedDuration
         } else {

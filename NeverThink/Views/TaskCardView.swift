@@ -1,3 +1,9 @@
+//
+//  TskCardView.swift
+//  NeverThink
+//
+//  Created by Gabriel Fernandez on 4/29/25.
+//
 import SwiftUI
 
 struct TaskCardView: View {
@@ -76,7 +82,7 @@ struct TaskCardView: View {
         .cornerRadius(16)
         .shadow(color: .black.opacity(0.15), radius: 8, x: 0, y: 4)
         .padding(.horizontal)
-        .contentShape(Rectangle()) // Make the whole area tappable
+        .contentShape(Rectangle()) 
         .onTapGesture {
             onTap?()
         }

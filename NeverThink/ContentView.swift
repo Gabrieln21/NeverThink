@@ -1,3 +1,9 @@
+//
+//  ContentView.swift
+//  NeverThink
+//
+//  Created by Gabriel Fernandez on 4/25/25.
+//
 import SwiftUI
 
 struct ContentView: View {
@@ -6,12 +12,12 @@ struct ContentView: View {
     @EnvironmentObject var recurringTaskManager: RecurringTaskManager
 
     init() {
-        PlannerService.shared.configure(apiKey: "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")
+        PlannerService.shared.configure(apiKey: "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")
     }
 
     var body: some View {
         TabView {
-            HomeView()
+            HomeView() 
                 .tabItem {
                     Label("Today", systemImage: "calendar")
                 }

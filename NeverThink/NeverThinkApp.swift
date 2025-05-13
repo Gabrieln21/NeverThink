@@ -2,7 +2,7 @@
 //  NeverThinkApp.swift
 //  NeverThink
 //
-//  Created by Gabriel Fernandez on 4/25/25.
+//  Created by Gabriel Hernandez on 4/25/25.
 //
 
 import SwiftUI
@@ -14,7 +14,7 @@ struct NeverThinkApp: App {
     @StateObject private var todayPlanManager = TodayPlanManager()
     @StateObject private var recurringTaskManager = RecurringTaskManager()
     @StateObject private var preferences = UserPreferencesService()
-    @StateObject private var locationService = LocationService()
+    @StateObject private var locationService = LocationService.shared
 
     init() {
         PlannerService.shared.requestLocation()

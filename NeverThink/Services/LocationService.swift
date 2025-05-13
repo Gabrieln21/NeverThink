@@ -8,13 +8,15 @@ import Foundation
 import CoreLocation
 
 class LocationService: NSObject, ObservableObject, CLLocationManagerDelegate {
+    static let shared = LocationService()
+
     private let geocoder = CLGeocoder()
     private let manager = CLLocationManager()
 
     @Published var currentAddress: String?
     @Published var currentLocation: CLLocation?
 
-    override init() {
+    private override init() {
         super.init()
         manager.delegate = self
         manager.requestWhenInUseAuthorization()

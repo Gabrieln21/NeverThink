@@ -37,10 +37,10 @@ extension RecurringTaskManager {
         let today = Date()
 
         var currentDate = today
-        let iterations = 60 // About 2 months !make selectable!!
+        let iterations = 60 // About 2 months !!Make seelectabe!!
 
         for _ in 0..<iterations {
-            let weekday = calendar.component(.weekday, from: currentDate) - 1 // Sunday = 0
+            let weekday = calendar.component(.weekday, from: currentDate) - 1 
 
             if recurringTask.recurringInterval == .weekly {
                 if !(recurringTask.selectedWeekdays?.contains(weekday) ?? false) {

@@ -1,11 +1,17 @@
+//
+//  TravelEstimator.swift
+//  NeverThink
+//
+//  Created by Gabriel Fernandez on 4/26/25.
+//
 import Foundation
 import CoreLocation
 
 struct TravelEstimator {
-    static let apiKey = "GOOGLE_MAPS_API_KEY" 
+    //static let apiKey = "AIzaSyA0hNSzHtuScFiYRwyVAp6aUt_NAF8C8T4"
 
     static func fetchTravelTime(from origin: String, to destination: String, mode: String, arrivalTime: Date? = nil) async throws -> TimeInterval {
-        var urlString = "https://maps.googleapis.com/maps/api/directions/json?origin=\(origin)&destination=\(destination)&mode=\(mode)&key=AIzaSyCB_pXJjASuszZqOkVws8SbL9QlNRYMlug"
+        var urlString = "https://maps.googleapis.com/maps/api/directions/json?origin=\(origin)&destination=\(destination)&mode=\(mode)&key=AIzaSyA0hNSzHtuScFiYRwyVAp6aUt_NAF8C8T4"
         
         if let arrivalTime = arrivalTime {
             let timestamp = Int(arrivalTime.timeIntervalSince1970)

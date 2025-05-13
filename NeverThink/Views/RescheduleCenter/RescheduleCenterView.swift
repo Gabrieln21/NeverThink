@@ -1,3 +1,9 @@
+//
+//  RescheduelCenterView.swift
+//  NeverThink
+//
+//  Created by Gabriel Fernandez on 5/02/25.
+//
 import SwiftUI
 
 struct RescheduleCenterView: View {
@@ -153,7 +159,7 @@ struct RescheduleCenterView: View {
                     generateAIOptimizationPrompt(tasks: tasksForDeadline, deadlines: deadlines)
                     showDeadlineScreen = false
                 }
-                .id(UUID()) // Force refresh
+                .id(UUID()) // ⬅️ Force refresh
             })
             .sheet(isPresented: $showTaskEditor) {
                 editorSheetContent
@@ -161,7 +167,6 @@ struct RescheduleCenterView: View {
         }
     }
 
-    // Helper Functions
 
     private func isTaskConflict(_ task: UserTask) -> Bool {
         let allScheduled = groupManager.allTasks.filter {
@@ -174,7 +179,7 @@ struct RescheduleCenterView: View {
             return startA < endB && endA > startB
         }
 
-        // Case 1: startsAt
+        // startsAt — fixed time
         if let taskStart = task.exactTime {
             for scheduled in allScheduled {
                 if let scheduledStart = scheduled.exactTime {
@@ -185,7 +190,7 @@ struct RescheduleCenterView: View {
             }
         }
 
-        // Case 2: busyFromTo
+        // busyFromTo — flexible range
         else if let rangeStart = task.timeRangeStart,
                 let rangeEnd = task.timeRangeEnd {
             let latestStart = rangeEnd.addingTimeInterval(TimeInterval(-task.duration * 60))

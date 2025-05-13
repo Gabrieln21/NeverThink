@@ -1,3 +1,9 @@
+//
+//  TaskexpansionView.swift
+//  NeverThink
+//
+//  Created by Gabriel Fernandez on 5/01/25.
+//
 import SwiftUI
 
 extension Notification.Name {
@@ -71,7 +77,7 @@ struct TaskExpansionView: View {
     var body: some View {
         NavigationView {
             ZStack {
-                // background gradient
+                // ✅ Proper background gradient
                 LinearGradient(
                     gradient: Gradient(colors: [Color(red: 0.9, green: 0.94, blue: 1.0), .white]),
                     startPoint: .topLeading,
@@ -272,7 +278,7 @@ struct TaskExpansionView: View {
 
         generatedTasks = []
         userInput = ""
-        dismiss() // Return Home
+        dismiss() // 👈 Return to Home
     }
 }
 

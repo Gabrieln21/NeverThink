@@ -1,3 +1,9 @@
+//
+//  NewTaskView.swift
+//  NeverThink
+//
+//  Created by Gabriel Fernandez on 4/25/25.
+//
 import SwiftUI
 
 enum TimeSensitivity: String, CaseIterable, Identifiable, Codable {

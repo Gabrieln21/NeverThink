@@ -1,3 +1,9 @@
+//
+//  NewReccuringTaskView.swift
+//  NeverThink
+//
+//  Created by Gabriel Fernandez on 4/26/25.
+//
 import SwiftUI
 
 struct NewRecurringTaskView: View {

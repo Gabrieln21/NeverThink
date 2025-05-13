@@ -1,6 +1,6 @@
 //
 //  UserTask.swift
-//  Neverhink
+//  NeverThink
 //
 //  Created by Gabriel Fernandez on 4/25/25.
 //
@@ -26,7 +26,6 @@ struct UserTask: Identifiable, Codable {
     var isCompleted: Bool = false
 }
 
-// Equatable + Hashable by id only
 extension UserTask: Equatable, Hashable {
     static func == (lhs: UserTask, rhs: UserTask) -> Bool {
         lhs.id == rhs.id
@@ -37,7 +36,7 @@ extension UserTask: Equatable, Hashable {
     }
 }
 
-// UrgencyLevel
+//UrgencyLevel
 
 enum UrgencyLevel: String, CaseIterable, Codable {
     case low = "Low"
