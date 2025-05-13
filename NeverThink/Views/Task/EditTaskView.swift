@@ -2,6 +2,7 @@ import SwiftUI
 
 struct EditTaskView: View {
     @EnvironmentObject var groupManager: TaskGroupManager
+    @EnvironmentObject var preferences: UserPreferencesService
     @Environment(\.presentationMode) var presentationMode
 
     var taskIndex: Int
@@ -16,10 +17,26 @@ struct EditTaskView: View {
     @State private var startTime: Date
     @State private var endTime: Date
     @State private var urgency: UrgencyLevel
-    @State private var isAtHome: Bool
-    @State private var isAnywhere: Bool
     @State private var location: String
     @State private var category: TaskCategory
+    @State private var selectedLocationType: LocationType = .custom
+    @State private var selectedSavedLocationId: UUID? = nil
+
+    enum LocationType: Identifiable, Hashable {
+        case home
+        case anywhere
+        case saved(UUID)
+        case custom
+
+        var id: String {
+            switch self {
+            case .home: return "home"
+            case .anywhere: return "anywhere"
+            case .saved(let id): return id.uuidString
+            case .custom: return "custom"
+            }
+        }
+    }
 
     init(taskIndex: Int, task: UserTask) {
         self.taskIndex = taskIndex
@@ -43,10 +60,8 @@ struct EditTaskView: View {
         }())
         _endTime = State(initialValue: task.timeRangeEnd ?? Date())
         _urgency = State(initialValue: task.urgency)
-        _isAtHome = State(initialValue: task.location == "Home")
-        _isAnywhere = State(initialValue: task.location == "Anywhere")
-        _location = State(initialValue: task.location ?? "")
         _category = State(initialValue: task.category)
+        _location = State(initialValue: task.location ?? "")
     }
 
     var body: some View {
@@ -97,7 +112,7 @@ struct EditTaskView: View {
 
                         if isTimeSensitive {
                             Picker("Time Sensitivity", selection: $timeSensitivityType) {
-                                ForEach(TimeSensitivity.allCases) { type in
+                                ForEach(TimeSensitivity.allCases, id: \..self) { type in
                                     Text(type.rawValue).tag(type)
                                 }
                             }
@@ -118,7 +133,7 @@ struct EditTaskView: View {
                         Text("Task Importance")
                             .font(.callout).foregroundColor(.secondary)
                         Picker("", selection: $urgency) {
-                            ForEach(UrgencyLevel.allCases, id: \.self) {
+                            ForEach(UrgencyLevel.allCases, id: \..self) {
                                 Text($0.rawValue)
                             }
                         }
@@ -129,15 +144,33 @@ struct EditTaskView: View {
                         Text("Location")
                             .font(.callout).foregroundColor(.secondary)
 
-                        Toggle("🏠 At Home?", isOn: $isAtHome)
-
-                        if !isAtHome {
-                            Toggle("🛫 Anywhere?", isOn: $isAnywhere)
-
-                            if !isAnywhere {
-                                TextField("Enter Address", text: $location)
-                                    .textFieldStyle(RoundedBorderTextFieldStyle())
+                        Picker("Location Type", selection: $selectedLocationType) {
+                            Text("\u{1F3E0} Home").tag(LocationType.home)
+                            Text("\u{1F6EB} Anywhere").tag(LocationType.anywhere)
+                            ForEach(preferences.commonLocations, id: \..id) { loc in
+                                Text(loc.name).tag(LocationType.saved(loc.id))
                             }
+                            Text("\u{1F4CD} Custom").tag(LocationType.custom)
+                        }
+                        .onChange(of: selectedLocationType) { type in
+                            switch type {
+                            case .home:
+                                location = "Home"
+                            case .anywhere:
+                                location = "Anywhere"
+                            case .saved(let id):
+                                if let saved = preferences.commonLocations.first(where: { $0.id == id }) {
+                                    location = saved.address
+                                    selectedSavedLocationId = id
+                                }
+                            case .custom:
+                                location = ""
+                            }
+                        }
+
+                        if selectedLocationType == .custom {
+                            TextField("Enter Address", text: $location)
+                                .textFieldStyle(RoundedBorderTextFieldStyle())
                         }
                     }
 
@@ -145,13 +178,27 @@ struct EditTaskView: View {
                         Text("Save Changes")
                             .frame(maxWidth: .infinity)
                             .padding()
-                            .background(title.isEmpty || (!isAtHome && !isAnywhere && location.isEmpty) ? Color.gray : Color.accentColor)
+                            .background(title.isEmpty || (selectedLocationType == .custom && location.isEmpty) ? Color.gray : Color.accentColor)
                             .foregroundColor(.white)
                             .cornerRadius(12)
                     }
-                    .disabled(title.isEmpty || (!isAtHome && !isAnywhere && location.isEmpty))
+                    .disabled(title.isEmpty || (selectedLocationType == .custom && location.isEmpty))
                 }
                 .padding(24)
+            }
+        }
+        .onAppear {
+            if originalTask.location == "Home" {
+                selectedLocationType = .home
+            } else if originalTask.location == "Anywhere" {
+                selectedLocationType = .anywhere
+            } else if let match = preferences.commonLocations.first(where: { $0.address == originalTask.location }) {
+                selectedLocationType = .saved(match.id)
+                selectedSavedLocationId = match.id
+                location = match.address
+            } else {
+                selectedLocationType = .custom
+                location = originalTask.location ?? ""
             }
         }
     }
@@ -187,14 +234,13 @@ struct EditTaskView: View {
             duration: totalDurationMinutes,
             isTimeSensitive: isTimeSensitive,
             urgency: urgency,
-            isLocationSensitive: !isAtHome,
+            isLocationSensitive: selectedLocationType != .home,
             location: {
-                if isAtHome {
-                    return "Home"
-                } else if isAnywhere {
-                    return "Anywhere"
-                } else {
-                    return location.isEmpty ? nil : location
+                switch selectedLocationType {
+                case .home: return "Home"
+                case .anywhere: return "Anywhere"
+                case .custom: return location.isEmpty ? nil : location
+                case .saved: return location.isEmpty ? nil : location
                 }
             }(),
             category: category,

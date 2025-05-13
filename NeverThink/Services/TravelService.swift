@@ -23,8 +23,9 @@ class TravelService {
         mode: String,
         arrivalTime: Date
     ) async throws -> TravelInfo {
-        
+
         let key = cacheKey(from: originAddress, to: destinationAddress)
+
         if let cached = travelTimeCache[key] {
             print("🧠 Using cached route \(originAddress) → \(destinationAddress)")
             return cached
@@ -85,7 +86,6 @@ class TravelService {
             ])
         }
 
-        // Fallback if departure time is missing
         let departureText = (firstLeg["departure_time"] as? [String: Any])?["text"] as? String ?? "N/A"
 
         let travelInfo = TravelInfo(
@@ -97,6 +97,20 @@ class TravelService {
         print("✅ Travel time from \(originAddress) → \(destinationAddress): \(travelInfo.durationMinutes) min")
 
         return travelInfo
+    }
+    func fetchTravelTime(
+        from origin: CLLocationCoordinate2D,
+        to destinationAddress: String,
+        mode: String,
+        arrivalTime: Date
+    ) async throws -> TravelInfo {
+        let originString = "\(origin.latitude),\(origin.longitude)"
+        return try await fetchTravelTime(
+            from: originString,
+            to: destinationAddress,
+            mode: mode,
+            arrivalTime: arrivalTime
+        )
     }
 
 }

@@ -7,7 +7,7 @@ struct PlannedTask: Codable, Identifiable {
     var title: String
     var notes: String?
     var reason: String?
-    var date: Date = Calendar.current.startOfDay(for: Date()) // fallback for decoding
+    var date: Date = Calendar.current.startOfDay(for: Date())
     var isCompleted: Bool = false
     var duration: Int
     var urgency: UrgencyLevel
@@ -66,7 +66,7 @@ struct PlannedTask: Codable, Identifiable {
         urgency = try container.decodeIfPresent(UrgencyLevel.self, forKey: .urgency) ?? .medium
         timeSensitivityType = try container.decodeIfPresent(TimeSensitivity.self, forKey: .timeSensitivityType) ?? .startsAt
 
-        // Safely calculate duration if missing
+        // calculate duration if missing
         if let providedDuration = try container.decodeIfPresent(Int.self, forKey: .duration) {
             duration = providedDuration
         } else {

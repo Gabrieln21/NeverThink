@@ -11,7 +11,7 @@ struct AIOptimizationModalView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                // Gradient background
+                // gradient background
                 LinearGradient(
                     gradient: Gradient(colors: [
                         Color(red: 0.85, green: 0.9, blue: 1.0),
@@ -94,7 +94,7 @@ struct AIOptimizationModalView: View {
                 }
             }
             .onAppear {
-                selected = Set(tasks.map { $0.id }) // default: all selected
+                selected = Set(tasks.map { $0.id })
             }
         }
     }

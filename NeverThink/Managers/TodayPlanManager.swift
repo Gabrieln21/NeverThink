@@ -90,7 +90,7 @@ class TodayPlanManager: ObservableObject {
         }
     }
 
-    // MARK: - Persistence
+    // Persistence
 
     private func saveToDisk() {
         let encoder = JSONEncoder()

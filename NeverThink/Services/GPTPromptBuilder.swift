@@ -14,10 +14,13 @@ struct GPTPromptBuilder {
         deadlines: [UUID: Date],
         scheduledEvents: [UserTask],
         from startDate: Date,
-        to endDate: Date
+        to endDate: Date,
+        wakeTime: Date,
+        sleepTime: Date
     ) -> String {
         
         let isoFormatter = ISO8601DateFormatter()
+        
         let taskList: [[String: Any]] = tasks.map { task in
             var dict: [String: Any] = [
                 "id": task.id.uuidString,
@@ -25,7 +28,6 @@ struct GPTPromptBuilder {
                 "duration": task.duration,
                 "urgency": task.urgency.rawValue
             ]
-            
             if let deadline = deadlines[task.id] {
                 dict["deadline"] = isoFormatter.string(from: deadline)
             }
@@ -40,17 +42,23 @@ struct GPTPromptBuilder {
             ]
         }
         
+        let wake = isoFormatter.string(from: wakeTime)
+        let sleep = isoFormatter.string(from: sleepTime)
+
         var prompt = "Today is \(isoFormatter.string(from: startDate)).\n"
         prompt += """
-        IMPORTANT:
-        If two tasks conflict in time, always preserve the more important one (higher urgency), and reschedule the other.
-        Do not remove or move both tasks.
-        """
-        prompt += "Schedule the following tasks before \(isoFormatter.string(from: endDate)).\n"
+        
+    IMPORTANT:
+    - Do NOT schedule anything **before \(wake)** or **after \(sleep)** — these are the user’s sleep hours and are off-limits.
+    - If two tasks conflict in time, always preserve the more important one (higher urgency), and reschedule the other.
+    - Never remove or move both tasks.
+    """
+
+        prompt += "\nSchedule the following tasks before \(isoFormatter.string(from: endDate)).\n"
         prompt += "Here are the tasks:\n\(taskList)\n"
         prompt += "Here are already scheduled events for context only (DO NOT include them in your response):\n\(eventList)\n"
         prompt += """
-        
+
     Respond with a JSON array of updated tasks like:
     [
       {
@@ -63,7 +71,6 @@ struct GPTPromptBuilder {
       ...
     ]
     """
-
         return prompt
     }
 }

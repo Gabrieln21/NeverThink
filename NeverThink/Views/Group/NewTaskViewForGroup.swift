@@ -2,6 +2,7 @@ import SwiftUI
 
 struct NewTaskViewForGroup: View {
     @EnvironmentObject var groupManager: TaskGroupManager
+    @EnvironmentObject var preferences: UserPreferencesService
     @Environment(\.presentationMode) var presentationMode
 
     var groupId: UUID
@@ -16,10 +17,26 @@ struct NewTaskViewForGroup: View {
     @State private var startTime: Date = Date()
     @State private var endTime: Date = Date()
     @State private var urgency: UrgencyLevel = .medium
-    @State private var isAtHome: Bool = true
-    @State private var isAnywhere: Bool = false
     @State private var location: String = ""
+    @State private var selectedSavedLocationId: UUID? = nil
+    @State private var selectedLocationType: LocationType = .home
     @State private var selectedDate: Date = Date()
+
+    enum LocationType: Identifiable, Hashable {
+        case home
+        case anywhere
+        case saved(UUID)
+        case custom
+
+        var id: String {
+            switch self {
+            case .home: return "home"
+            case .anywhere: return "anywhere"
+            case .saved(let id): return id.uuidString
+            case .custom: return "custom"
+            }
+        }
+    }
 
     var body: some View {
         ZStack {
@@ -46,6 +63,7 @@ struct NewTaskViewForGroup: View {
                         TextField("Enter task title", text: $title)
                             .textFieldStyle(RoundedBorderTextFieldStyle())
                     }
+
                     Group {
                         Text("Date")
                             .font(.callout)
@@ -114,28 +132,46 @@ struct NewTaskViewForGroup: View {
                             .font(.callout)
                             .foregroundColor(.secondary)
 
-                        Toggle("🏠 At Home?", isOn: $isAtHome)
+                        Picker("Location Type", selection: $selectedLocationType) {
+                            Text("🏠 Home").tag(LocationType.home)
+                            Text("🛫 Anywhere").tag(LocationType.anywhere)
+                            ForEach(preferences.commonLocations) { loc in
+                                Text(loc.name).tag(LocationType.saved(loc.id))
+                            }
+                            Text("📍 Custom").tag(LocationType.custom)
+                        }
 
-                        if !isAtHome {
-                            Toggle("🛫 Anywhere?", isOn: $isAnywhere)
-
-                            if !isAnywhere {
-                                TextField("Enter Address", text: $location)
-                                    .textFieldStyle(RoundedBorderTextFieldStyle())
+                        .onChange(of: selectedLocationType) { type in
+                            switch type {
+                            case .home:
+                                location = "Home"
+                            case .anywhere:
+                                location = "Anywhere"
+                            case .saved(let id):
+                                if let saved = preferences.commonLocations.first(where: { $0.id == id }) {
+                                    location = saved.address
+                                    selectedSavedLocationId = id
+                                }
+                            case .custom:
+                                location = ""
                             }
                         }
-                    }
 
+                        if selectedLocationType == .custom {
+                            TextField("Enter Address", text: $location)
+                                .textFieldStyle(RoundedBorderTextFieldStyle())
+                        }
+                    }
 
                     Button(action: saveTask) {
                         Text("Save Task")
                             .frame(maxWidth: .infinity)
                             .padding()
-                            .background(title.isEmpty || (!isAtHome && !isAnywhere && location.isEmpty) ? Color.gray : Color.accentColor)
+                            .background(title.isEmpty || (selectedLocationType == .custom && location.isEmpty) ? Color.gray : Color.accentColor)
                             .foregroundColor(.white)
                             .cornerRadius(12)
                     }
-                    .disabled(title.isEmpty || (!isAtHome && !isAnywhere && location.isEmpty))
+                    .disabled(title.isEmpty || (selectedLocationType == .custom && location.isEmpty))
                 }
                 .padding(24)
             }
@@ -173,14 +209,13 @@ struct NewTaskViewForGroup: View {
             duration: totalDurationMinutes,
             isTimeSensitive: isTimeSensitive,
             urgency: urgency,
-            isLocationSensitive: !isAtHome,
+            isLocationSensitive: selectedLocationType != .home,
             location: {
-                if isAtHome {
-                    return "Home"
-                } else if isAnywhere {
-                    return "Anywhere"
-                } else {
-                    return location.isEmpty ? nil : location
+                switch selectedLocationType {
+                case .home: return "Home"
+                case .anywhere: return "Anywhere"
+                case .custom: return location.isEmpty ? nil : location
+                case .saved: return location.isEmpty ? nil : location
                 }
             }(),
             category: .doAnywhere,

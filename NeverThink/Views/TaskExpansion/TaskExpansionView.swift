@@ -71,7 +71,7 @@ struct TaskExpansionView: View {
     var body: some View {
         NavigationView {
             ZStack {
-                // Background gradient
+                // background gradient
                 LinearGradient(
                     gradient: Gradient(colors: [Color(red: 0.9, green: 0.94, blue: 1.0), .white]),
                     startPoint: .topLeading,
@@ -272,7 +272,7 @@ struct TaskExpansionView: View {
 
         generatedTasks = []
         userInput = ""
-        dismiss() // Return to Home
+        dismiss() // Return Home
     }
 }
 

@@ -13,6 +13,8 @@ struct NeverThinkApp: App {
     @StateObject private var groupManager = TaskGroupManager()
     @StateObject private var todayPlanManager = TodayPlanManager()
     @StateObject private var recurringTaskManager = RecurringTaskManager()
+    @StateObject private var preferences = UserPreferencesService()
+    @StateObject private var locationService = LocationService()
 
     init() {
         PlannerService.shared.requestLocation()
@@ -23,15 +25,21 @@ struct NeverThinkApp: App {
             if !authManager.isSignedIn {
                 AuthView()
                     .environmentObject(authManager)
+                    .environmentObject(preferences)
+                    .environmentObject(locationService)
             } else if !authManager.hasSetHomeAddress {
                 HomeAddressView()
                     .environmentObject(authManager)
+                    .environmentObject(preferences)
+                    .environmentObject(locationService)
             } else {
                 ContentView()
                     .environmentObject(authManager)
                     .environmentObject(groupManager)
                     .environmentObject(todayPlanManager)
                     .environmentObject(recurringTaskManager)
+                    .environmentObject(preferences)
+                    .environmentObject(locationService)
             }
         }
     }

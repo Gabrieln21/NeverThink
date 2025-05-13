@@ -2,7 +2,7 @@ import Foundation
 import CoreLocation
 
 struct TravelEstimator {
-    static let apiKey = "GOOGLE_MAPS_API_KEY"
+    static let apiKey = "GOOGLE_MAPS_API_KEY" 
 
     static func fetchTravelTime(from origin: String, to destination: String, mode: String, arrivalTime: Date? = nil) async throws -> TimeInterval {
         var urlString = "https://maps.googleapis.com/maps/api/directions/json?origin=\(origin)&destination=\(destination)&mode=\(mode)&key=AIzaSyCB_pXJjASuszZqOkVws8SbL9QlNRYMlug"

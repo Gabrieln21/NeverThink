@@ -1,7 +1,9 @@
 import SwiftUI
 
 struct EditPlannedTaskView: View {
+    @EnvironmentObject var preferences: UserPreferencesService
     @Environment(\.presentationMode) var presentationMode
+
 
     @State var task: PlannedTask
     var onSave: (PlannedTask) -> Void
@@ -18,8 +20,28 @@ struct EditPlannedTaskView: View {
     @State private var notes: String
     @State private var reason: String
 
+    @State private var location: String = ""
+    @State private var selectedSavedLocationId: UUID? = nil
+    @State private var selectedLocationType: LocationType = .custom
+
     @State private var showNotes: Bool = false
     @State private var showReason: Bool = false
+
+    enum LocationType: Identifiable, Hashable {
+        case home
+        case anywhere
+        case saved(UUID)
+        case custom
+
+        var id: String {
+            switch self {
+            case .home: return "home"
+            case .anywhere: return "anywhere"
+            case .saved(let id): return id.uuidString
+            case .custom: return "custom"
+            }
+        }
+    }
 
     init(task: PlannedTask, onSave: @escaping (PlannedTask) -> Void) {
         self.task = task
@@ -41,6 +63,18 @@ struct EditPlannedTaskView: View {
         let duration = Calendar.current.dateComponents([.minute], from: start, to: end).minute ?? 30
         _durationHours = State(initialValue: "\(duration / 60)")
         _durationMinutes = State(initialValue: "\(duration % 60)")
+        _location = State(initialValue: task.location ?? "")
+
+        if task.location == "Home" {
+            _selectedLocationType = State(initialValue: .home)
+        } else if task.location == "Anywhere" {
+            _selectedLocationType = State(initialValue: .anywhere)
+        } else if let match = UserPreferencesService().commonLocations.first(where: { $0.address == task.location }) {
+            _selectedLocationType = State(initialValue: .saved(match.id))
+            _selectedSavedLocationId = State(initialValue: match.id)
+        } else {
+            _selectedLocationType = State(initialValue: .custom)
+        }
     }
 
     var body: some View {
@@ -94,6 +128,37 @@ struct EditPlannedTaskView: View {
                         }
                     }
                     .pickerStyle(.segmented)
+                }
+
+                Section(header: Text("Location")) {
+                    Picker("Location Type", selection: $selectedLocationType) {
+                        Text("🏠 Home").tag(LocationType.home)
+                        Text("🛫 Anywhere").tag(LocationType.anywhere)
+                        ForEach(preferences.commonLocations) { loc in
+                            Text(loc.name).tag(LocationType.saved(loc.id))
+                        }
+                        Text("📍 Custom").tag(LocationType.custom)
+                    }
+                    .onChange(of: selectedLocationType) { type in
+                        switch type {
+                        case .home:
+                            location = "Home"
+                        case .anywhere:
+                            location = "Anywhere"
+                        case .saved(let id):
+                            if let saved = preferences.commonLocations.first(where: { $0.id == id }) {
+                                location = saved.address
+                                selectedSavedLocationId = id
+                            }
+                        case .custom:
+                            location = ""
+                        }
+                    }
+
+                    if selectedLocationType == .custom {
+                        TextField("Enter Address", text: $location)
+                            .textFieldStyle(RoundedBorderTextFieldStyle())
+                    }
                 }
 
                 DisclosureGroup("📝 Notes", isExpanded: $showNotes) {
@@ -154,6 +219,15 @@ struct EditPlannedTaskView: View {
                 break
             }
         }
+
+        updatedTask.location = {
+            switch selectedLocationType {
+            case .home: return "Home"
+            case .anywhere: return "Anywhere"
+            case .custom: return location.isEmpty ? nil : location
+            case .saved: return location.isEmpty ? nil : location
+            }
+        }()
 
         onSave(updatedTask)
         presentationMode.wrappedValue.dismiss()

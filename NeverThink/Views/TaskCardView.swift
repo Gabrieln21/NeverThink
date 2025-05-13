@@ -19,73 +19,72 @@ struct TaskCardView: View {
     }
 
     var body: some View {
-        Button(action: { onTap?() }) {
-            HStack(alignment: .top, spacing: 10) {
-                Circle()
-                    .fill(urgencyColor)
-                    .frame(width: 10, height: 10)
-                    .padding(.top, 6)
+        HStack(alignment: .top, spacing: 10) {
+            Circle()
+                .fill(urgencyColor)
+                .frame(width: 10, height: 10)
+                .padding(.top, 6)
 
-                VStack(alignment: .leading, spacing: 6) {
-                    Text(title)
-                        .font(.headline)
-                        .foregroundColor(.primary)
+            VStack(alignment: .leading, spacing: 6) {
+                Text(title)
+                    .font(.headline)
+                    .foregroundColor(.primary)
 
-                    if let date = date {
-                        if let time = timeRangeText, !time.isEmpty {
-                            Text("📅 \(formattedDate(for: date)) • \(time) • \(duration) min")
-                                .font(.caption2)
-                                .foregroundColor(.gray)
-                        } else {
-                            Text("📅 \(formattedDate(for: date)) • \(duration) min")
-                                .font(.caption2)
-                                .foregroundColor(.gray)
-                        }
-                    }
-
-
-
-                    if let loc = cleanLocation, !loc.lowercased().contains("anywhere"), !loc.isEmpty {
-                        Text("📍 \(loc)")
+                if let date = date {
+                    if let time = timeRangeText, !time.isEmpty {
+                        Text("📅 \(formattedDate(for: date)) • \(time) • \(duration) min")
                             .font(.caption2)
                             .foregroundColor(.gray)
-                    }
-
-                    if showDateWarning {
-                        Text("⚠️ No date set — added to today")
-                            .font(.caption2)
-                            .foregroundColor(.orange)
-                    }
-
-                    if let reason, !reason.isEmpty {
-                        Text(reason)
+                    } else {
+                        Text("📅 \(formattedDate(for: date)) • \(duration) min")
                             .font(.caption2)
                             .foregroundColor(.gray)
                     }
                 }
 
-                Spacer()
+                if let loc = cleanLocation, !loc.lowercased().contains("anywhere"), !loc.isEmpty {
+                    Text("📍 \(loc)")
+                        .font(.caption2)
+                        .foregroundColor(.gray)
+                }
 
-                if let onDelete {
-                    Button(action: onDelete) {
-                        Image(systemName: "xmark.circle.fill")
-                            .foregroundColor(.red)
-                    }
-                    .buttonStyle(.plain)
+                if showDateWarning {
+                    Text("⚠️ No date set — added to today")
+                        .font(.caption2)
+                        .foregroundColor(.orange)
+                }
+
+                if let reason, !reason.isEmpty {
+                    Text(reason)
+                        .font(.caption2)
+                        .foregroundColor(.gray)
                 }
             }
-            .padding()
-            .background(.ultraThinMaterial)
-            .cornerRadius(16)
-            .shadow(color: .black.opacity(0.15), radius: 8, x: 0, y: 4)
-            .padding(.horizontal)
+
+            Spacer()
+
+            if let onDelete {
+                Button(action: onDelete) {
+                    Image(systemName: "xmark.circle.fill")
+                        .foregroundColor(.red)
+                }
+                .buttonStyle(.plain)
+            }
         }
-        .buttonStyle(.plain)
+        .padding()
+        .background(.ultraThinMaterial)
+        .cornerRadius(16)
+        .shadow(color: .black.opacity(0.15), radius: 8, x: 0, y: 4)
+        .padding(.horizontal)
+        .contentShape(Rectangle()) // Make the whole area tappable
+        .onTapGesture {
+            onTap?()
+        }
     }
+
     private func formattedDate(for date: Date) -> String {
         let formatter = DateFormatter()
         formatter.dateStyle = .medium
         return formatter.string(from: date)
     }
-
 }

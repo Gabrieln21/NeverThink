@@ -196,7 +196,7 @@ struct PlannerView: View {
             let normalizedDate = Calendar.current.startOfDay(for: selectedDate)
             let updatedTasks = generatedPlan.map { task in
                 var newTask = task
-                newTask.date = normalizedDate // Set date directly
+                newTask.date = normalizedDate // ✅ Always set date directly
                 return newTask
             }
 

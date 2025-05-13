@@ -317,14 +317,22 @@ struct RescheduleCenterView: View {
         let earliest = Date()
         let latest = deadlines.values.sorted().last ?? Calendar.current.date(byAdding: .day, value: 3, to: Date())!
         let events = getScheduledEvents(start: earliest, end: latest)
+        let today = Calendar.current.startOfDay(for: Date())
+        let endDate = Calendar.current.date(byAdding: .day, value: 7, to: today)!
+        let wakeUpTime = Calendar.current.date(bySettingHour: 8, minute: 0, second: 0, of: today)!
+        let bedtime = Calendar.current.date(bySettingHour: 23, minute: 0, second: 0, of: today)!
+        let existingEvents = getScheduledEvents(start: today, end: endDate)
 
         let prompt = GPTPromptBuilder.buildPrompt(
             tasks: tasks,
             deadlines: deadlines,
-            scheduledEvents: events,
-            from: earliest,
-            to: latest
+            scheduledEvents: existingEvents,
+            from: today,
+            to: endDate,
+            wakeTime: wakeUpTime,
+            sleepTime: bedtime
         )
+
 
         isLoadingAIPlan = true
 
@@ -354,13 +362,24 @@ struct RescheduleCenterView: View {
             onRegenerate: { userNotes in
                 Task {
                     isLoadingAIPlan = true
+                    let now = Date()
+                    let start = Calendar.current.startOfDay(for: now)
+                    let end = Calendar.current.date(byAdding: .day, value: 7, to: start)!
+
+                    let wakeTime = Calendar.current.date(bySettingHour: 8, minute: 0, second: 0, of: start)!
+                    let sleepTime = Calendar.current.date(bySettingHour: 23, minute: 0, second: 0, of: start)!
+
                     let newPrompt = GPTPromptBuilder.buildPrompt(
                         tasks: tasksForDeadline,
                         deadlines: [:],
-                        scheduledEvents: getScheduledEvents(start: Date(), end: Date().addingTimeInterval(60*60*24*7)),
-                        from: Date(),
-                        to: Date().addingTimeInterval(60*60*24*7)
+                        scheduledEvents: getScheduledEvents(start: start, end: end),
+                        from: start,
+                        to: end,
+                        wakeTime: wakeTime,
+                        sleepTime: sleepTime
                     ) + "\n\nUser Notes: \(userNotes)"
+
+
 
                     do {
                         let newResponse = try await AIRescheduleService.requestReschedulePlan(prompt: newPrompt)

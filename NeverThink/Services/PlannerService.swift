@@ -20,6 +20,24 @@ private struct PromptTask: Codable {
     let reason: String
 }
 
+private class LocationDelegate: NSObject, CLLocationManagerDelegate {
+    let onLocationFix: (CLLocation) -> Void
+
+    init(onLocationFix: @escaping (CLLocation) -> Void) {
+        self.onLocationFix = onLocationFix
+    }
+
+    func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
+        if let location = locations.last {
+            manager.stopUpdatingLocation()
+            onLocationFix(location)
+        }
+    }
+
+    func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
+        print("❌ Location error: \(error.localizedDescription)")
+    }
+}
 
 
 class PlannerService: NSObject, CLLocationManagerDelegate {
@@ -60,25 +78,17 @@ class PlannerService: NSObject, CLLocationManagerDelegate {
     }
 
     func getCurrentLocation() async throws -> CLLocationCoordinate2D {
-        print("📍 Current user location: \(currentLocation)")
-        if let currentLocation = currentLocation {
-            return currentLocation
-        }
-
         return try await withCheckedThrowingContinuation { continuation in
-            self.locationContinuation = continuation
-            requestLocation()
-
-            DispatchQueue.main.asyncAfter(deadline: .now() + 10) {
-                if self.locationContinuation != nil {
-                    continuation.resume(throwing: NSError(domain: "PlannerService", code: 99, userInfo: [
-                        NSLocalizedDescriptionKey: "Location request timed out. Please enable location access."
-                    ]))
-                    self.locationContinuation = nil
-                }
+            let manager = CLLocationManager()
+            let delegate = LocationDelegate { location in
+                continuation.resume(returning: location.coordinate)
             }
+            manager.delegate = delegate
+            manager.requestWhenInUseAuthorization()
+            manager.startUpdatingLocation()
         }
     }
+
 
 
     func generatePlan(from tasks: [UserTask], for date: Date, transportMode: String, extraNotes: String = "") async throws -> [PlannedTask] {
@@ -91,7 +101,7 @@ class PlannerService: NSObject, CLLocationManagerDelegate {
 
         let home = AuthenticationManager.shared.homeAddress
 
-        // 🧠 Build travel hints
+        // Build travel hints
         let cleanedTasks = tasks.filter {
             !$0.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && $0.duration > 0
         }
@@ -144,7 +154,7 @@ class PlannerService: NSObject, CLLocationManagerDelegate {
         let travelHints = try await buildTravelMatrix(fromAddress: userStartAddress, tasks: cleanedTasks, home: home, mode: transportMode)
 
         print("✅ FINISHED TRAVEL MATRIX")
-        // 🧠 Decide whether to suppress the initial travel block if very short
+        // Decide whether to suppress the initial travel block if very short
         let firstTask = cleanedTasks.first(where: { $0.isLocationSensitive && ($0.location?.isEmpty == false) })
         var skipInitialTravel = false
 
@@ -399,15 +409,15 @@ class PlannerService: NSObject, CLLocationManagerDelegate {
         }
 
 
-        // ✅ Inject travel blocks
+        // Inject travel blocks
         let withTravel = Self.insertMissingTravelBlocks(from: adjustedTasks, using: travelHints)
 
 
-        // ✅ Reposition DueBy tasks if needed
+        // Reposition DueBy tasks if needed
         let finalTasks = Self.repositionDueByTasks(withTravel)
 
 
-        // 🔍 Validate travel logic
+        // Validate travel logic
         let travelWarnings = validateTravelSequence(tasks: adjustedTasks)
         
         let uniqueTasks = Dictionary(grouping: finalTasks, by: { $0.id })
@@ -467,7 +477,7 @@ class PlannerService: NSObject, CLLocationManagerDelegate {
 
         var jsonString = String(cleanedResponse[start...end])
 
-        // ✅ Fix: Remove all trailing commas in objects and arrays
+        // Remove all trailing commas in objects and arrays
         while jsonString.contains(",\n]") || jsonString.contains(",\n}") {
             jsonString = jsonString.replacingOccurrences(of: ",\n]", with: "\n]")
             jsonString = jsonString.replacingOccurrences(of: ",\n}", with: "\n}")
@@ -481,13 +491,13 @@ class PlannerService: NSObject, CLLocationManagerDelegate {
             for i in 0..<rawTasks.count {
                 var task = rawTasks[i]
 
-                // 🚨 Ensure ID is present before trying to match
+                // Ensure ID is present before trying to match
                 guard !task.id.isEmpty else {
                     print("🚨 Missing task ID on task: \(task.title)")
                     continue
                 }
 
-                // 🔒 Enforce fixed times for `startsAt` tasks
+                // Enforce fixed times for `startsAt` tasks
                 if task.timeSensitivityType == .startsAt {
                     if let original = originalTasks.first(where: { $0.id.uuidString == task.id }),
                        let expected = original.exactTime {
@@ -643,7 +653,7 @@ class PlannerService: NSObject, CLLocationManagerDelegate {
             let isTravel = task.title.lowercased().starts(with: "travel")
 
             if isTravel {
-                // ✅ Don't insert travel to travel, and don’t re-add
+                // Don't insert travel to travel, and don’t re-add
                 result.append(task)
                 previous = task
                 continue
@@ -654,7 +664,7 @@ class PlannerService: NSObject, CLLocationManagerDelegate {
                let currLoc = task.location,
                prevLoc != currLoc {
 
-                // ✅ Check if previous is already a travel block
+                // Check if previous is already a travel block
                 let prevIsTravel = prev.title.lowercased().starts(with: "travel")
                 if !prevIsTravel {
                     // 🧠 Avoid duplicate travel blocks
@@ -681,7 +691,7 @@ class PlannerService: NSObject, CLLocationManagerDelegate {
         }
 
 
-        // ✅ Insert final travel block back home if needed
+        // Insert final travel block back home if needed
         if let last = result.last,
            let lastLocation = last.location {
             
@@ -739,7 +749,9 @@ extension PlannerService {
         home: String,
         mode: String
     ) async throws -> String {
-        let originString = originAddress
+        let originCoord = try await getCurrentLocation() // async fresh fetch
+        let originString = "\(originCoord.latitude),\(originCoord.longitude)"
+
         let arrivalTime = Date().addingTimeInterval(3600)
         var matrixEntries: [String] = []
         var travelTimeCache = [String: TravelInfo]()
@@ -751,7 +763,6 @@ extension PlannerService {
             }
             return "\(normalize(from))_to_\(normalize(to))"
         }
-
 
         func clean(_ s: String?) -> String? {
             guard let trimmed = s?.trimmingCharacters(in: .whitespacesAndNewlines),
@@ -766,18 +777,18 @@ extension PlannerService {
             for task in validTasks {
                 guard let taskAddress = clean(task.location) else { continue }
 
-                // From origin address → task address
+                // From current GPS → task address
                 group.addTask {
                     let from = originString
                     let to = taskAddress
                     let key = cacheKey(clean(from), clean(to))
                     if let cached = travelTimeCache[key] {
-                        return "From \(from) → \(task.title) [\(to)] = \(cached.durationMinutes) min (Depart at: \(cached.departureTime))"
+                        return "From Current Location → \(task.title) [\(to)] = \(cached.durationMinutes) min (Depart at: \(cached.departureTime))"
                     }
                     do {
                         let info = try await TravelService.shared.fetchTravelTime(from: from, to: to, mode: mode, arrivalTime: arrivalTime)
                         travelTimeCache[key] = info
-                        return "From \(from) → \(task.title) [\(to)] = \(info.durationMinutes) min (Depart at: \(info.departureTime))"
+                        return "From Current Location → \(task.title) [\(to)] = \(info.durationMinutes) min (Depart at: \(info.departureTime))"
                     } catch {
                         return "⚠️ Failed: \(from) → \(task.title): \(error.localizedDescription)"
                     }
@@ -789,13 +800,17 @@ extension PlannerService {
                         let from = taskAddress
                         let to = toHome
                         let key = cacheKey(clean(from), clean(to))
-                        print("🔍 Looking up travelTimeCache with key: \(key)")
                         if let cached = travelTimeCache[key] {
                             return "\(task.title) → Home [\(to)] = \(cached.durationMinutes) min (Depart at: \(cached.departureTime))"
                         }
 
                         do {
-                            let info = try await TravelService.shared.fetchTravelTime(from: from, to: to, mode: mode, arrivalTime: arrivalTime)
+                            let info = try await TravelService.shared.fetchTravelTime(
+                                from: from,
+                                to: to,
+                                mode: mode,
+                                arrivalTime: arrivalTime
+                            )
                             travelTimeCache[key] = info
                             return "\(task.title) → Home [\(to)] = \(info.durationMinutes) min (Depart at: \(info.departureTime))"
                         } catch {
@@ -831,27 +846,8 @@ extension PlannerService {
 
         return matrixEntries.joined(separator: "\n")
     }
-
-
-
-    private func reverseGeocode(_ coordinate: CLLocationCoordinate2D) async -> String {
-        let geocoder = CLGeocoder()
-        let location = CLLocation(latitude: coordinate.latitude, longitude: coordinate.longitude)
-        do {
-            let placemarks = try await geocoder.reverseGeocodeLocation(location)
-            if let placemark = placemarks.first {
-                let street = placemark.thoroughfare ?? ""
-                let number = placemark.subThoroughfare ?? ""
-                let city = placemark.locality ?? ""
-                let state = placemark.administrativeArea ?? ""
-                return "\(number) \(street), \(city), \(state)".trimmingCharacters(in: .whitespaces)
-            }
-        } catch {
-            print("🔴 Reverse geocoding failed: \(error.localizedDescription)")
-        }
-        return "Unknown Location"
-    }
 }
+
 
 
 

@@ -58,7 +58,7 @@ struct AIRescheduleReviewView: View {
                 location: original?.location
             )
 
-            task.duration = gpt.duration // manually set to prevent auto-zero
+            task.duration = gpt.duration
 
             return task
         }
@@ -169,6 +169,7 @@ struct AIRescheduleReviewView: View {
                     if let uuid = UUID(uuidString: task.id) {
                         groupManager.removeTaskById(uuid)
 
+                        // Map PlannedTask.TimeSensitivity to TimeSensitivity
                         let mappedSensitivity: TimeSensitivity
                         switch task.timeSensitivityType {
                         case .startsAt:

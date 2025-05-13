@@ -4,6 +4,7 @@ import UserNotifications
 struct HomeView: View {
     @EnvironmentObject var todayPlanManager: TodayPlanManager
     @EnvironmentObject var groupManager: TaskGroupManager
+    @EnvironmentObject var preferences: UserPreferencesService
 
     @State private var selectedDate: Date = Date()
     @State private var dateForNewTask: Date? = nil
@@ -232,35 +233,35 @@ struct HomeView: View {
     private var toolbarItems: some ToolbarContent {
         Group {
             ToolbarItemGroup(placement: .navigationBarLeading) {
-                HStack(spacing: 16) {
-                    NavigationLink(destination: TaskExpansionView().environmentObject(groupManager)) {
-                        Image(systemName: "wand.and.stars.inverse")
+                NavigationLink(destination: SettingsView()) {
+                    Image(systemName: "gearshape.fill")
+                        .font(.title2)
+                }
+
+                if !groupManager.rescheduleQueue.isEmpty {
+                    NavigationLink(destination: RescheduleCenterView(
+                        rescheduleQueue: Binding(get: { groupManager.rescheduleQueue }, set: { _ in }),
+                        selectedTask: $selectedTask
+                    )) {
+                        Image(systemName: "exclamationmark.circle.fill")
                             .font(.title2)
-                    }
-                    if !groupManager.rescheduleQueue.isEmpty {
-                        NavigationLink(destination: RescheduleCenterView(
-                            rescheduleQueue: Binding(get: { groupManager.rescheduleQueue }, set: { _ in }),
-                            selectedTask: $selectedTask
-                        )) {
-                            Image(systemName: "exclamationmark.circle.fill")
-                                .font(.title2)
-                                .foregroundColor(.red)
-                        }
+                            .foregroundColor(.red)
                     }
                 }
             }
+
             ToolbarItemGroup(placement: .navigationBarTrailing) {
-                HStack(spacing: 16) {
-                    Button {
-                        dateForNewTask = selectedDate
-                    } label: {
-                        Image(systemName: "plus")
-                    }
-                    NavigationLink(destination: PlannerView()
-                        .environmentObject(groupManager)
-                        .environmentObject(todayPlanManager)) {
-                        Image(systemName: "sparkles")
-                    }
+                Button {
+                    dateForNewTask = selectedDate
+                } label: {
+                    Image(systemName: "plus")
+                }
+
+                Menu {
+                    NavigationLink("AI Task Expansion", destination: TaskExpansionView())
+                    NavigationLink("AI Day Planner", destination: PlannerView())
+                } label: {
+                    Image(systemName: "sparkles")
                 }
             }
             ToolbarItem(placement: .navigationBarTrailing) {
@@ -355,15 +356,8 @@ struct HomeView: View {
 
 
     private func taskRow(_ task: UserTask, alarmAction: @escaping () -> Void) -> some View {
-        TaskCardView(
-            title: task.title,
-            urgencyColor: task.urgency.color,
-            duration: task.duration,
-            date: task.date,
-            location: displayLocation(task.location),
-            reason: nil,
-            timeRangeText: timeRangeText(for: task),
-            showDateWarning: task.date == nil,
+        HomeTaskCardView(
+            task: task,
             onDelete: nil,
             onTap: { selectedTask = task }
         )
