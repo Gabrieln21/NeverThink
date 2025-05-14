@@ -1,5 +1,5 @@
 # NeverThink – AI-Powered Daily Task Manager  
-**CSC 660/680 App Design Project**
+**CSC 680 App Design Project**
 
 ## IMPORTANT: SETTING UP THE PROJECT
 
@@ -25,7 +25,7 @@ TravelService.shared.configure(apiKey: "GOOGLE_API_KEY_HERE")
 ---
 
 ## Programmer
-- Gabriel Fernandez (9204899310@sfsu.edu) (Github: Gabrieln21)
+- Gabriel Fernandez (920489931@sfsu.edu) (Github: Gabrieln21)
 
 ---
 
