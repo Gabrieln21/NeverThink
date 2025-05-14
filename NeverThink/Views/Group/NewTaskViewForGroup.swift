@@ -4,8 +4,10 @@
 //
 //  Created by Gabriel Fernandez on 4/25/25.
 //
+
 import SwiftUI
 
+// View for creating a new task within a specific task group
 struct NewTaskViewForGroup: View {
     @EnvironmentObject var groupManager: TaskGroupManager
     @EnvironmentObject var preferences: UserPreferencesService
@@ -14,6 +16,7 @@ struct NewTaskViewForGroup: View {
     var groupId: UUID
     @Binding var tasks: [UserTask]
 
+    // Form input states
     @State private var title: String = ""
     @State private var durationHours: String = "0"
     @State private var durationMinutes: String = "30"
@@ -26,9 +29,9 @@ struct NewTaskViewForGroup: View {
     @State private var location: String = ""
     @State private var selectedSavedLocationId: UUID? = nil
     @State private var selectedLocationType: LocationType = .home
+    @State private var selectedDate: Date = Date() // Date picker value
 
-    @State private var selectedDate: Date = Date() // 🆕 Date picker state
-
+    // Enum representing different types of location input
     enum LocationType: Identifiable, Hashable {
         case home
         case anywhere
@@ -47,6 +50,7 @@ struct NewTaskViewForGroup: View {
 
     var body: some View {
         ZStack {
+            // background gradient
             LinearGradient(
                 gradient: Gradient(colors: [
                     Color(red: 0.85, green: 0.9, blue: 1.0),
@@ -63,6 +67,7 @@ struct NewTaskViewForGroup: View {
                         .font(.largeTitle.bold())
                         .padding(.top)
 
+                    // Task Title
                     Group {
                         Text("Title")
                             .font(.callout)
@@ -70,7 +75,8 @@ struct NewTaskViewForGroup: View {
                         TextField("Enter task title", text: $title)
                             .textFieldStyle(RoundedBorderTextFieldStyle())
                     }
-                    // 🆕 DATE PICKER
+
+                    // Date Picker
                     Group {
                         Text("Date")
                             .font(.callout)
@@ -79,6 +85,7 @@ struct NewTaskViewForGroup: View {
                             .datePickerStyle(.compact)
                     }
 
+                    // Duration (hours & minutes)
                     Group {
                         Text("Duration")
                             .font(.callout)
@@ -88,18 +95,16 @@ struct NewTaskViewForGroup: View {
                                 .keyboardType(.numberPad)
                                 .frame(width: 50)
                                 .textFieldStyle(.roundedBorder)
-
                             Text("hrs")
-
                             TextField("30", text: $durationMinutes)
                                 .keyboardType(.numberPad)
                                 .frame(width: 50)
                                 .textFieldStyle(.roundedBorder)
-
                             Text("min")
                         }
                     }
 
+                    // Time Sensitivity Section
                     Group {
                         Toggle("Time Sensitive", isOn: $isTimeSensitive)
 
@@ -122,6 +127,7 @@ struct NewTaskViewForGroup: View {
                         }
                     }
 
+                    // Urgency Level
                     Group {
                         Text("Task Importance")
                             .font(.callout)
@@ -134,6 +140,7 @@ struct NewTaskViewForGroup: View {
                         .pickerStyle(.segmented)
                     }
 
+                    // Location Selection
                     Group {
                         Text("Location")
                             .font(.callout)
@@ -147,8 +154,8 @@ struct NewTaskViewForGroup: View {
                             }
                             Text("📍 Custom").tag(LocationType.custom)
                         }
-
                         .onChange(of: selectedLocationType) { type in
+                            // Handle selection change
                             switch type {
                             case .home:
                                 location = "Home"
@@ -170,6 +177,7 @@ struct NewTaskViewForGroup: View {
                         }
                     }
 
+                    // Save Button
                     Button(action: saveTask) {
                         Text("Save Task")
                             .frame(maxWidth: .infinity)
@@ -185,12 +193,14 @@ struct NewTaskViewForGroup: View {
         }
     }
 
+    // Builds a new `UserTask` and saves it to the selected group
     private func saveTask() {
         var actualExactTime: Date? = nil
         var actualStartTime: Date? = nil
         var actualEndTime: Date? = nil
         var sensitivityTypeForSaving: TimeSensitivity = .startsAt
 
+        // Determine time sensitivity details
         if isTimeSensitive {
             switch timeSensitivityType {
             case .dueBy:
@@ -210,6 +220,7 @@ struct NewTaskViewForGroup: View {
 
         let totalDurationMinutes = (Int(durationHours) ?? 0) * 60 + (Int(durationMinutes) ?? 0)
 
+        // Construct task object
         let newTask = UserTask(
             id: UUID(),
             title: title,
@@ -230,9 +241,10 @@ struct NewTaskViewForGroup: View {
             exactTime: actualExactTime,
             timeRangeStart: actualStartTime,
             timeRangeEnd: actualEndTime,
-            date: selectedDate // ✅ SAVE DATE HERE
+            date: selectedDate
         )
 
+        // Save and dismiss
         tasks.append(newTask)
         groupManager.updateTasks(for: groupId, tasks: tasks)
         presentationMode.wrappedValue.dismiss()

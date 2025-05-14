@@ -7,22 +7,30 @@
 import Foundation
 import CoreLocation
 
+// Struct for holding decoded travel data
 struct TravelInfo: Decodable {
     let durationMinutes: Int
     let departureTime: String
 }
 
+// Handles travel time calculations using Google Maps Directions API
 class TravelService {
     static let shared = TravelService()
-    private let apiKey = "AIzaSyA0hNSzHtuScFiYRwyVAp6aUt_NAF8C8T4"
-    
+    private(set) var apiKey: String = ""
+
     // Caching to prevent duplicate requests
     private var travelTimeCache = [String: TravelInfo]()
+
+    func configure(apiKey: String) {
+        self.apiKey = apiKey
+    }
     
+    // Generates a cache key for origin→destination
     private func cacheKey(from: String, to: String) -> String {
         return "\(from.lowercased())_TO_\(to.lowercased())"
     }
 
+    // Fetches travel time between two addresses (string form)
     func fetchTravelTime(
         from originAddress: String,
         to destinationAddress: String,
@@ -31,12 +39,14 @@ class TravelService {
     ) async throws -> TravelInfo {
 
         let key = cacheKey(from: originAddress, to: destinationAddress)
-
+        
+        // Return cached result if available
         if let cached = travelTimeCache[key] {
             print("🧠 Using cached route \(originAddress) → \(destinationAddress)")
             return cached
         }
 
+        // Build the request URL
         let arrivalEpoch = Int(arrivalTime.timeIntervalSince1970)
         let encodedOrigin = originAddress.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
         let encodedDestination = destinationAddress.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
@@ -51,8 +61,10 @@ class TravelService {
 
         print("🌍 Requesting travel time:\n\(url.absoluteString)")
 
+        // Perform the API request
         let (data, response) = try await URLSession.shared.data(from: url)
 
+        // Verify a successful response
         guard let httpResponse = response as? HTTPURLResponse else {
             throw URLError(.badServerResponse)
         }
@@ -62,6 +74,7 @@ class TravelService {
             throw URLError(.badServerResponse)
         }
 
+        // Decode the response JSON
         guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
             throw NSError(domain: "TravelService", code: 99, userInfo: [
                 NSLocalizedDescriptionKey: "Failed to decode Google Maps response"
@@ -77,6 +90,7 @@ class TravelService {
             ])
         }
 
+        // Extract travel duration info
         guard
             let routes = json["routes"] as? [[String: Any]],
             let firstRoute = routes.first,
@@ -99,11 +113,14 @@ class TravelService {
             departureTime: departureText
         )
 
+        // Cache the result
         travelTimeCache[key] = travelInfo
         print("✅ Travel time from \(originAddress) → \(destinationAddress): \(travelInfo.durationMinutes) min")
 
         return travelInfo
     }
+    
+    // Overloaded version that accepts coordinates as origin
     func fetchTravelTime(
         from origin: CLLocationCoordinate2D,
         to destinationAddress: String,

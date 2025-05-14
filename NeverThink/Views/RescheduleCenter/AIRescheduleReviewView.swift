@@ -6,6 +6,7 @@
 //
 import SwiftUI
 
+// Struct used to decode GPT-generated planned tasks
 struct GPTPlannedTask: Codable {
     let id: String
     let title: String
@@ -15,18 +16,19 @@ struct GPTPlannedTask: Codable {
 }
 
 struct AIRescheduleReviewView: View {
-    var aiPlanText: String
-    var originalTasks: [UserTask]
-    var onAccept: () -> Void
-    var onRegenerate: (String) -> Void
+    var aiPlanText: String                  // JSON string from GPT with rescheduled tasks
+    var originalTasks: [UserTask]           // Original unoptimized tasks
+    var onAccept: () -> Void                // Callback when user accepts the plan
+    var onRegenerate: (String) -> Void      // Callback to regenerate the plan with notes
     
     @EnvironmentObject var todayPlanManager: TodayPlanManager
     @EnvironmentObject var groupManager: TaskGroupManager
 
 
-    @State private var userNotes: String = ""
-    @State private var selectedTask: PlannedTask?
+    @State private var userNotes: String = ""     // Notes for GPT if user wants to tweak
+    @State private var selectedTask: PlannedTask? // Placeholder for editable selected task
 
+    // Decode AI JSON plan string into [PlannedTask]
     private var parsedTasks: [PlannedTask] {
         guard let data = aiPlanText.data(using: .utf8) else {
             print("⚠️ Could not convert AI plan to Data")
@@ -46,7 +48,7 @@ struct AIRescheduleReviewView: View {
             let endString = DateFormatter.timeStringByAddingMinutes(to: gpt.start_time, minutes: gpt.duration)
             let derivedDate = Calendar.current.startOfDay(for: startDate)
 
-            // Look up original task
+            // Look up original task for additional info
             let original = originalTasks.first(where: { $0.id.uuidString == gpt.id })
             let timeSensitivity: PlannedTask.TimeSensitivity = original
                 .flatMap { PlannedTask.TimeSensitivity(rawValue: $0.timeSensitivityType.rawValue) } ?? .startsAt
@@ -76,6 +78,7 @@ struct AIRescheduleReviewView: View {
     var body: some View {
         NavigationStack {
             ZStack {
+                // gradient background
                 LinearGradient(
                     gradient: Gradient(colors: [Color(red: 0.85, green: 0.9, blue: 1.0), Color.white]),
                     startPoint: .topLeading,
@@ -89,13 +92,10 @@ struct AIRescheduleReviewView: View {
                             .font(.largeTitle.bold())
                             .padding(.top)
 
-                        planPreviewSection
-
+                        planPreviewSection     // Displays parsed or raw plan
                         Divider()
-
-                        notesSection
-
-                        buttonsSection
+                        notesSection           // GPT input for regeneration
+                        buttonsSection         // Accept and Regenerate buttons
                     }
                     .padding(24)
                 }
@@ -103,10 +103,13 @@ struct AIRescheduleReviewView: View {
             .navigationTitle("Review Plan")
         }
     }
+    
+    // Task Preview Section
 
     @ViewBuilder
     private var planPreviewSection: some View {
         if parsedTasks.isEmpty {
+            // Fallback view if JSON failed to parse
             Text("⚠️ Could not parse GPT response. Showing raw output:")
                 .font(.subheadline)
                 .foregroundColor(.red)
@@ -117,6 +120,7 @@ struct AIRescheduleReviewView: View {
                 .cornerRadius(12)
                 .foregroundColor(.black)
         } else {
+            // Render each planned task card
             ForEach(parsedTasks, id: \.id) { task in
                 HStack {
                     VStack(alignment: .leading, spacing: 6) {
@@ -149,6 +153,7 @@ struct AIRescheduleReviewView: View {
         }
     }
 
+    // Optional Notes Section
     private var notesSection: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("📝 Add Notes for GPT (Optional)")
@@ -167,13 +172,14 @@ struct AIRescheduleReviewView: View {
         }
     }
 
-
+    // Action Buttons Section
     private var buttonsSection: some View {
         VStack(spacing: 14) {
+            // Accept plan and apply tasks
             Button(action: {
                 for task in parsedTasks {
                     if let uuid = UUID(uuidString: task.id) {
-                        groupManager.removeTaskById(uuid)
+                        groupManager.removeTaskById(uuid) // Remove existing version
 
                         // Map PlannedTask.TimeSensitivity to TimeSensitivity
                         let mappedSensitivity: TimeSensitivity
@@ -209,7 +215,7 @@ struct AIRescheduleReviewView: View {
 
 
                         groupManager.addTask(userTask)
-                        todayPlanManager.removeTaskById(uuid)
+                        todayPlanManager.removeTaskById(uuid) // Remove old from today if exists
 
                     }
                 }
@@ -226,7 +232,7 @@ struct AIRescheduleReviewView: View {
 
 
 
-
+            // Regenerate plan with user notes
             Button(action: { onRegenerate(userNotes) }) {
                 Text("🔄 Regenerate Plan With Notes")
                     .frame(maxWidth: .infinity)

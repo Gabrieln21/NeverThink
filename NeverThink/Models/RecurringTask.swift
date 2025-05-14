@@ -6,6 +6,7 @@
 //
 import Foundation
 
+// Defines how often a task repeats
 enum RecurringInterval: String, CaseIterable, Identifiable, Codable {
     case daily = "Daily"
     case weekly = "Weekly"
@@ -15,6 +16,7 @@ enum RecurringInterval: String, CaseIterable, Identifiable, Codable {
     var id: String { self.rawValue }
 }
 
+// Represents a user-defined recurring task that can be used to generate planned tasks
 struct RecurringTask: Identifiable, Codable {
     var id: UUID = UUID()
     var title: String
@@ -28,7 +30,7 @@ struct RecurringTask: Identifiable, Codable {
     var location: String? 
     var category: TaskCategory
     var recurringInterval: RecurringInterval
-    var selectedWeekdays: Set<Int>? = nil
+    var selectedWeekdays: Set<Int>? = nil // Only used for weekly recurrence
 }
 
 

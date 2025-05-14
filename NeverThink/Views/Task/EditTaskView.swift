@@ -4,16 +4,20 @@
 //
 //  Created by Gabriel Fernandez on 4/25/25.
 //
+
 import SwiftUI
 
+// View for editing an existing `UserTask` within a group.
 struct EditTaskView: View {
     @EnvironmentObject var groupManager: TaskGroupManager
     @EnvironmentObject var preferences: UserPreferencesService
     @Environment(\.presentationMode) var presentationMode
 
+    // Reference to the task being edited and its index in the group
     var taskIndex: Int
     var originalTask: UserTask
 
+    // Editable state fields populated from original task
     @State private var title: String
     @State private var durationHours: String
     @State private var durationMinutes: String
@@ -28,6 +32,7 @@ struct EditTaskView: View {
     @State private var selectedLocationType: LocationType = .custom
     @State private var selectedSavedLocationId: UUID? = nil
 
+    // Enum to categorize location input source
     enum LocationType: Identifiable, Hashable {
         case home
         case anywhere
@@ -44,6 +49,7 @@ struct EditTaskView: View {
         }
     }
 
+    // Initializes the form fields based on the original task
     init(taskIndex: Int, task: UserTask) {
         self.taskIndex = taskIndex
         self.originalTask = task
@@ -54,6 +60,8 @@ struct EditTaskView: View {
         _isTimeSensitive = State(initialValue: task.isTimeSensitive)
         _timeSensitivityType = State(initialValue: task.timeSensitivityType)
         _exactTime = State(initialValue: task.exactTime ?? Date())
+
+        // Determine start time based on time sensitivity type
         _startTime = State(initialValue: {
             switch task.timeSensitivityType {
             case .startsAt:
@@ -64,6 +72,7 @@ struct EditTaskView: View {
                 return Date()
             }
         }())
+
         _endTime = State(initialValue: task.timeRangeEnd ?? Date())
         _urgency = State(initialValue: task.urgency)
         _category = State(initialValue: task.category)
@@ -72,6 +81,7 @@ struct EditTaskView: View {
 
     var body: some View {
         ZStack {
+            // Background gradient
             LinearGradient(
                 gradient: Gradient(colors: [
                     Color(red: 0.85, green: 0.9, blue: 1.0),
@@ -79,8 +89,7 @@ struct EditTaskView: View {
                 ]),
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
-            )
-            .ignoresSafeArea()
+            ).ignoresSafeArea()
 
             ScrollView {
                 VStack(alignment: .leading, spacing: 24) {
@@ -88,6 +97,7 @@ struct EditTaskView: View {
                         .font(.largeTitle.bold())
                         .padding(.top)
 
+                    // Title input
                     Group {
                         Text("Title")
                             .font(.callout).foregroundColor(.secondary)
@@ -95,6 +105,7 @@ struct EditTaskView: View {
                             .textFieldStyle(RoundedBorderTextFieldStyle())
                     }
 
+                    // Duration picker
                     Group {
                         Text("Duration")
                             .font(.callout).foregroundColor(.secondary)
@@ -104,7 +115,6 @@ struct EditTaskView: View {
                                 .frame(width: 50)
                                 .textFieldStyle(.roundedBorder)
                             Text("hrs")
-
                             TextField("30", text: $durationMinutes)
                                 .keyboardType(.numberPad)
                                 .frame(width: 50)
@@ -113,12 +123,13 @@ struct EditTaskView: View {
                         }
                     }
 
+                    // Time sensitivity toggles and pickers
                     Group {
                         Toggle("Time Sensitive", isOn: $isTimeSensitive)
 
                         if isTimeSensitive {
                             Picker("Time Sensitivity", selection: $timeSensitivityType) {
-                                ForEach(TimeSensitivity.allCases, id: \..self) { type in
+                                ForEach(TimeSensitivity.allCases, id: \.self) { type in
                                     Text(type.rawValue).tag(type)
                                 }
                             }
@@ -135,28 +146,30 @@ struct EditTaskView: View {
                         }
                     }
 
+                    // Urgency selector
                     Group {
                         Text("Task Importance")
                             .font(.callout).foregroundColor(.secondary)
                         Picker("", selection: $urgency) {
-                            ForEach(UrgencyLevel.allCases, id: \..self) {
+                            ForEach(UrgencyLevel.allCases, id: \.self) {
                                 Text($0.rawValue)
                             }
                         }
                         .pickerStyle(SegmentedPickerStyle())
                     }
 
+                    // Location picker + custom entry
                     Group {
                         Text("Location")
                             .font(.callout).foregroundColor(.secondary)
 
                         Picker("Location Type", selection: $selectedLocationType) {
-                            Text("\u{1F3E0} Home").tag(LocationType.home)
-                            Text("\u{1F6EB} Anywhere").tag(LocationType.anywhere)
-                            ForEach(preferences.commonLocations, id: \..id) { loc in
+                            Text("🏠 Home").tag(LocationType.home)
+                            Text("🛫 Anywhere").tag(LocationType.anywhere)
+                            ForEach(preferences.commonLocations, id: \.id) { loc in
                                 Text(loc.name).tag(LocationType.saved(loc.id))
                             }
-                            Text("\u{1F4CD} Custom").tag(LocationType.custom)
+                            Text("📍 Custom").tag(LocationType.custom)
                         }
                         .onChange(of: selectedLocationType) { type in
                             switch type {
@@ -180,6 +193,7 @@ struct EditTaskView: View {
                         }
                     }
 
+                    // Save button
                     Button(action: saveEdits) {
                         Text("Save Changes")
                             .frame(maxWidth: .infinity)
@@ -194,6 +208,7 @@ struct EditTaskView: View {
             }
         }
         .onAppear {
+            // Determine location type from saved task data
             if originalTask.location == "Home" {
                 selectedLocationType = .home
             } else if originalTask.location == "Anywhere" {
@@ -209,6 +224,7 @@ struct EditTaskView: View {
         }
     }
 
+    // Build and save the updated task based on the user’s input
     func saveEdits() {
         var actualExactTime: Date? = nil
         var actualStartTime: Date? = nil
@@ -257,6 +273,7 @@ struct EditTaskView: View {
             date: originalTask.date
         )
 
+        // Update the task in its group if it exists
         if let groupIndex = groupManager.groups.firstIndex(where: { group in
             group.tasks.contains(where: { $0.id == originalTask.id })
         }),

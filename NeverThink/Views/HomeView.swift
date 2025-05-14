@@ -7,11 +7,13 @@
 import SwiftUI
 import UserNotifications
 
+// main dashboard view that displays the user's tasks for the selected date.
 struct HomeView: View {
     @EnvironmentObject var todayPlanManager: TodayPlanManager
     @EnvironmentObject var groupManager: TaskGroupManager
     @EnvironmentObject var preferences: UserPreferencesService
 
+    // UI State
     @State private var selectedDate: Date = Date()
     @State private var dateForNewTask: Date? = nil
     @State private var showConfetti: Bool = false
@@ -22,11 +24,12 @@ struct HomeView: View {
     @State private var showOriginalTasks = false
     @State private var showCompletedUserTasks: Bool = false
 
-
+    // Computed Properties
+    // Returns all AI-generated tasks scheduled for the selected date
     private var todayPlannedTasks: [PlannedTask] {
         todayPlanManager.getTodayPlan(for: selectedDate)
     }
-
+    // Returns all user-created tasks scheduled for the selected date
     private var todayTasks: [UserTask] {
         groupManager.allTasks.filter { task in
             guard let taskDate = task.date else { return false }
@@ -41,6 +44,7 @@ struct HomeView: View {
     var body: some View {
         NavigationStack {
             ZStack {
+                // Background gradient
                 LinearGradient(
                     gradient: Gradient(colors: [Color(red: 0.85, green: 0.9, blue: 1.0), Color.white]),
                     startPoint: .topLeading,
@@ -49,6 +53,7 @@ struct HomeView: View {
                 .ignoresSafeArea()
 
                 List {
+                    // Header with calendar
                     Section {
                         VStack(spacing: 8) {
                             Text("NeverThink")
@@ -65,17 +70,21 @@ struct HomeView: View {
                         .listRowBackground(Color.clear)
                         .listSectionSeparator(.hidden)
                     }
-
+                    
+                    // Placeholder when no tasks exist
                     if todayPlannedTasks.isEmpty && todayTasks.isEmpty {
                         emptyTasksSection
                     }
 
+                    // AI plan tasks section
                     if !todayPlannedTasks.isEmpty {
                         aiPlanSection
                     }
-
+                    
+                    // User-created tasks section
                     initialTasksSection
 
+                    // Completed tasks
                     if todayPlannedTasks.isEmpty && todayTasks.isEmpty {
                         completedTasksSection
                             .padding(.top, 80)
@@ -94,22 +103,29 @@ struct HomeView: View {
             .navigationDestination(item: $selectedTask) { task in
                 TaskDetailView(task: task, taskIndex: 0)
             }
+            
+            // Show new task modal
             .sheet(isPresented: Binding(get: { dateForNewTask != nil }, set: { if !$0 { dateForNewTask = nil } })) {
                 if let date = dateForNewTask {
                     NewTaskView(targetDate: date)
                         .environmentObject(groupManager)
                 }
             }
+            // Show AI planned task editor
             .sheet(item: $selectedPlannedTask) { task in
                 EditPlannedTaskView(task: task) { updated in
                     todayPlanManager.updateTask(updated)
                     selectedPlannedTask = nil
                 }
             }
+            // Confetti celebration for completed tasks
             .overlay(confettiOverlay)
         }
     }
+    
+    // UI Components
 
+    // Calendar date selector
     private var calendarHeader: some View {
         VStack(spacing: 8) {
             DatePicker("", selection: $selectedDate, displayedComponents: [.date])
@@ -119,6 +135,8 @@ struct HomeView: View {
                 .padding(.horizontal)
         }
     }
+    
+    // Shown when there are no tasks on the selected day
     private var emptyTasksSection: some View {
         Section {
             HStack {
@@ -144,6 +162,7 @@ struct HomeView: View {
         .listSectionSeparator(.hidden)
     }
 
+    // Tasks the user or AI has already completed
     @ViewBuilder
     private var completedTasksSection: some View {
         let completedUserTasks = groupManager.completedTasks(for: selectedDate)
@@ -172,9 +191,7 @@ struct HomeView: View {
         }
     }
 
-
-
-
+    // User-created tasks for the selected day
     @ViewBuilder
     private var initialTasksSection: some View {
         if !todayTasks.isEmpty {
@@ -210,7 +227,7 @@ struct HomeView: View {
         }
     }
 
-
+    // AI-generated tasks that haven't been completed yet
     private var aiPlanSection: some View {
         let incompleteAITasks = todayPlannedTasks.filter { !$0.isCompleted }
 
@@ -232,7 +249,7 @@ struct HomeView: View {
     }
 
 
-
+    // toolbar buttons (settings, add, etc.)
     private var toolbarItems: some ToolbarContent {
         Group {
             ToolbarItemGroup(placement: .navigationBarLeading) {
@@ -279,6 +296,7 @@ struct HomeView: View {
         }
     }
 
+    // Displays confetti emoji when a task is completed
     private var confettiOverlay: some View {
         Group {
             if showConfetti {
@@ -294,6 +312,8 @@ struct HomeView: View {
             }
         }
     }
+    
+    // Task Logic
 
     private func completeTask(_ task: UserTask) {
         // Mark task as completed and persist it

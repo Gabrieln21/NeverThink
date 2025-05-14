@@ -6,6 +6,7 @@
 //
 import SwiftUI
 
+// to apply blur effects in SwiftUI views.
 struct BlurView: UIViewRepresentable {
     var style: UIBlurEffect.Style
 

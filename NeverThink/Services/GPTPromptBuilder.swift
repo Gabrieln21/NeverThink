@@ -7,8 +7,9 @@
 
 import Foundation
 
+// Utility for building a GPT prompt from a list of tasks and constraints
 struct GPTPromptBuilder {
-    
+    // Builds a english and JSON prompt to send to GPT for rescheduling tasks.
     static func buildPrompt(
         tasks: [UserTask],
         deadlines: [UUID: Date],
@@ -21,6 +22,7 @@ struct GPTPromptBuilder {
         
         let isoFormatter = ISO8601DateFormatter()
         
+        // Format user tasks into dictionaries with deadline if available
         let taskList: [[String: Any]] = tasks.map { task in
             var dict: [String: Any] = [
                 "id": task.id.uuidString,
@@ -34,6 +36,7 @@ struct GPTPromptBuilder {
             return dict
         }
 
+        // Format already scheduled events for context
         let eventList: [[String: String]] = scheduledEvents.compactMap { event in
             guard let time = event.exactTime else { return nil }
             return [
@@ -44,7 +47,8 @@ struct GPTPromptBuilder {
         
         let wake = isoFormatter.string(from: wakeTime)
         let sleep = isoFormatter.string(from: sleepTime)
-
+        
+        // Create final prompt with scheduling rules and serialized data
         var prompt = "Today is \(isoFormatter.string(from: startDate)).\n"
         prompt += """
         

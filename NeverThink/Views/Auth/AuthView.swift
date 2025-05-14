@@ -4,6 +4,7 @@
 //
 import SwiftUI
 
+// The initial welcome screen for the NeverThink app
 struct AuthView: View {
     @EnvironmentObject var authManager: AuthenticationManager
 
@@ -22,7 +23,7 @@ struct AuthView: View {
 
             VStack(spacing: 28) {
                 Spacer()
-
+                // App title and subtitle
                 VStack(spacing: 12) {
                     Text("Welcome to NeverThink")
                         .font(.system(size: 34, weight: .bold, design: .rounded))
@@ -37,7 +38,7 @@ struct AuthView: View {
                 }
 
                 Spacer()
-
+                // Sign In button triggers app's sign-in state
                 Button(action: {
                     authManager.signIn()
                 }) {

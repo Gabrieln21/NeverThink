@@ -10,7 +10,7 @@ import SwiftUI
 
 struct MainAppView: View {
     var body: some View {
-        ContentView() // 👈 your real app content
+        ContentView()
     }
 }
 

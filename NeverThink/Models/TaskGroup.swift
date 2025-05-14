@@ -7,6 +7,8 @@
 
 import Foundation
 
+// Tasks are grouped into days by default
+//  TasksGroups not restricted by days can also be created
 struct TaskGroup: Identifiable, Codable, Hashable, Equatable {
     var id = UUID()
     var name: String

@@ -7,6 +7,7 @@
 
 import Foundation
 
+// A service that expands user input into structured task data using GPT.
 class TaskExpansionService {
     static let shared = TaskExpansionService()
 
@@ -16,11 +17,12 @@ class TaskExpansionService {
 
     private init() {}
     
+    // Extracts formatted dates from user text using GPT
     func findRelevantDates(from userInput: String) async throws -> [Date] {
         guard let apiKey = apiKey else {
             throw NSError(domain: "TaskExpansionService", code: 0, userInfo: [NSLocalizedDescriptionKey: "API Key not configured"])
         }
-
+        // Prompt instructs GPT to return only dates, nothing else
         let prompt = """
         THE YEAR IS 2025!!! IMPORTANT!!!
 
@@ -37,7 +39,7 @@ class TaskExpansionService {
         \(userInput)
         \"\"\"
         """
-
+        // Prepare request
         let url = URL(string: "https://api.openai.com/v1/chat/completions")!
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
@@ -52,11 +54,12 @@ class TaskExpansionService {
             "temperature": 0
         ]
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
-
+        // Perform request
         let (data, _) = try await URLSession.shared.data(for: request)
 
         let jsonObject = try JSONSerialization.jsonObject(with: data) as? [String: Any]
 
+        // Extract text response from GPT
         guard let choices = jsonObject?["choices"] as? [[String: Any]],
               let message = choices.first?["message"] as? [String: Any],
               let content = message["content"] as? String else {
@@ -70,14 +73,14 @@ class TaskExpansionService {
               let dateStrings = try? JSONDecoder().decode([String].self, from: dataContent) else {
             throw NSError(domain: "TaskExpansionService", code: 2, userInfo: [NSLocalizedDescriptionKey: "Failed to decode dates from response: \(content)"])
         }
-
+        // Convert string dates to Date objects
         let formatter = DateFormatter()
         formatter.dateFormat = "yyyy-MM-dd"
 
         return dateStrings.compactMap { formatter.date(from: $0) }
     }
 
-
+    // Converts english into a list of structured tasks using GPT
     func expandTextToTasks(_ userInput: String, existingSchedule: [Date: [String]] = [:]) async throws -> [UserTask] {
         guard let apiKey = apiKey else {
             throw NSError(domain: "TaskExpansionService", code: 0, userInfo: [NSLocalizedDescriptionKey: "API Key not configured"])
@@ -150,7 +153,8 @@ class TaskExpansionService {
         \(userInput)
         \"\"\"
         """
-
+        
+        // Set up and send GPT request
         let url = URL(string: "https://api.openai.com/v1/chat/completions")!
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
@@ -169,7 +173,8 @@ class TaskExpansionService {
         let (data, _) = try await URLSession.shared.data(for: request)
 
         let jsonObject = try JSONSerialization.jsonObject(with: data) as? [String: Any]
-
+        
+        // Extract raw text from GPT's structured response
         guard let choices = jsonObject?["choices"] as? [[String: Any]],
               let message = choices.first?["message"] as? [String: Any],
               let content = message["content"] as? String else {
@@ -180,7 +185,7 @@ class TaskExpansionService {
 
         return try Self.parseExpandedTasks(from: content)
     }
-
+    // Converts user schedule into a text block for GPT context
     private static func buildScheduleContext(_ schedule: [Date: [String]]) -> String {
         if schedule.isEmpty {
             return "⚡ USER HAS NO EXISTING TASKS."
@@ -199,16 +204,19 @@ class TaskExpansionService {
 
         return result
     }
-
+    
+    // Parses GPT output and maps it into [UserTask]
     private static func parseExpandedTasks(from response: String) throws -> [UserTask] {
         var cleanedResponse = response.trimmingCharacters(in: .whitespacesAndNewlines)
-
+        
+        // Remove surrounding triple backticks if present
         if cleanedResponse.hasPrefix("```") {
             cleanedResponse = cleanedResponse.replacingOccurrences(of: "```json", with: "")
             cleanedResponse = cleanedResponse.replacingOccurrences(of: "```", with: "")
             cleanedResponse = cleanedResponse.trimmingCharacters(in: .whitespacesAndNewlines)
         }
-
+        
+        // Extract the array portion of the response
         guard let start = cleanedResponse.firstIndex(of: "["),
               let end = cleanedResponse.lastIndex(of: "]") else {
             throw NSError(domain: "TaskExpansionService", code: 2, userInfo: [
@@ -234,6 +242,7 @@ class TaskExpansionService {
 
         let rawTasks = try JSONDecoder().decode([RawTask].self, from: data)
 
+        // Convert raw decoded tasks into usable UserTask objects
         let mappedTasks = rawTasks.map { raw in
             UserTask(
                 id: UUID(),

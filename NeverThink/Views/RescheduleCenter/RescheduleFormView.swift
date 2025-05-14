@@ -4,16 +4,19 @@
 //
 //  Created by Gabriel Fernandez on 5/02/25.
 //
+
 import SwiftUI
 
+// A form view for manually updating/rescheduling a task’s properties like time, date, location, and urgency.
 struct RescheduleFormView: View {
     @EnvironmentObject var groupManager: TaskGroupManager
     @EnvironmentObject var preferences: UserPreferencesService
-    @Environment(\..presentationMode) var presentationMode
+    @Environment(\.presentationMode) var presentationMode
 
     @Binding var rescheduleQueue: [UserTask]
     var task: UserTask
 
+    // Editable state properties
     @State private var newTitle: String
     @State private var newDate: Date
     @State private var newTime: Date?
@@ -22,6 +25,7 @@ struct RescheduleFormView: View {
     @State private var selectedLocationType: LocationType = .home
     @State private var selectedSavedLocationId: UUID? = nil
 
+    // Enum for tracking which type of location the user selects
     enum LocationType: Identifiable, Hashable {
         case home
         case anywhere
@@ -38,6 +42,7 @@ struct RescheduleFormView: View {
         }
     }
 
+    // Initializes the form state based on the passed-in task
     init(task: UserTask, rescheduleQueue: Binding<[UserTask]>) {
         self.task = task
         self._rescheduleQueue = rescheduleQueue
@@ -48,6 +53,7 @@ struct RescheduleFormView: View {
         _urgency = State(initialValue: task.urgency)
         _location = State(initialValue: task.location ?? "")
 
+        // location type from stored value
         if task.location == "Home" {
             _selectedLocationType = State(initialValue: .home)
         } else if task.location == "Anywhere" {
@@ -63,6 +69,7 @@ struct RescheduleFormView: View {
     var body: some View {
         NavigationStack {
             ZStack {
+                // Gradient background
                 LinearGradient(
                     gradient: Gradient(colors: [
                         Color(red: 0.85, green: 0.9, blue: 1.0),
@@ -79,6 +86,7 @@ struct RescheduleFormView: View {
                             .font(.largeTitle.bold())
                             .padding(.top)
 
+                        // Title input
                         Group {
                             Text("Task Title")
                                 .font(.callout).foregroundColor(.secondary)
@@ -87,6 +95,7 @@ struct RescheduleFormView: View {
                                 .textFieldStyle(RoundedBorderTextFieldStyle())
                         }
 
+                        // Date picker
                         Group {
                             Text("New Date")
                                 .font(.callout).foregroundColor(.secondary)
@@ -95,6 +104,7 @@ struct RescheduleFormView: View {
                                 .labelsHidden()
                         }
 
+                        // Optional time picker
                         Group {
                             Text("Optional Time")
                                 .font(.callout).foregroundColor(.secondary)
@@ -110,6 +120,7 @@ struct RescheduleFormView: View {
                             .labelsHidden()
                         }
 
+                        // Urgency selector
                         Group {
                             Text("Urgency")
                                 .font(.callout).foregroundColor(.secondary)
@@ -122,17 +133,18 @@ struct RescheduleFormView: View {
                             .pickerStyle(SegmentedPickerStyle())
                         }
 
+                        // Location selector
                         Group {
                             Text("Location")
                                 .font(.callout).foregroundColor(.secondary)
 
                             Picker("Location Type", selection: $selectedLocationType) {
-                                Text("\u{1F3E0} Home").tag(LocationType.home)
-                                Text("\u{1F6EB} Anywhere").tag(LocationType.anywhere)
+                                Text("🏠 Home").tag(LocationType.home)
+                                Text("🛫 Anywhere").tag(LocationType.anywhere)
                                 ForEach(preferences.commonLocations) { loc in
                                     Text(loc.name).tag(LocationType.saved(loc.id))
                                 }
-                                Text("\u{1F4CD} Custom").tag(LocationType.custom)
+                                Text("📍 Custom").tag(LocationType.custom)
                             }
                             .onChange(of: selectedLocationType) { type in
                                 switch type {
@@ -150,12 +162,14 @@ struct RescheduleFormView: View {
                                 }
                             }
 
+                            // Custom location text field
                             if selectedLocationType == .custom {
                                 TextField("Enter Address", text: $location)
                                     .textFieldStyle(RoundedBorderTextFieldStyle())
                             }
                         }
 
+                        // Action buttons
                         HStack(spacing: 12) {
                             Button("Cancel") {
                                 presentationMode.wrappedValue.dismiss()
@@ -183,6 +197,7 @@ struct RescheduleFormView: View {
         }
     }
 
+    // Applies the updated fields to the original task and saves them
     private func saveChanges() {
         var updatedTask = task
         updatedTask.title = newTitle
@@ -197,9 +212,9 @@ struct RescheduleFormView: View {
             case .saved: return location.isEmpty ? nil : location
             }
         }()
-
         updatedTask.urgency = urgency
 
+        // Update the task if it already exists in a group, otherwise add it
         if let groupIndex = groupManager.groups.firstIndex(where: {
             $0.tasks.contains(where: { $0.id == task.id })
         }),
@@ -210,8 +225,10 @@ struct RescheduleFormView: View {
             groupManager.addTask(updatedTask)
         }
 
+        // Remove from reschedule queue
         rescheduleQueue.removeAll { $0.id == task.id }
 
+        // Dismiss the form
         presentationMode.wrappedValue.dismiss()
     }
 }

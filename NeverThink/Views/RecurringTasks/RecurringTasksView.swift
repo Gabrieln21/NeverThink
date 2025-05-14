@@ -4,8 +4,10 @@
 //
 //  Created by Gabriel Fernandez on 4/26/25.
 //
+
 import SwiftUI
 
+// View for displaying and managing recurring tasks
 struct RecurringTasksView: View {
     @EnvironmentObject var recurringManager: RecurringTaskManager
     @EnvironmentObject var groupManager: TaskGroupManager
@@ -16,6 +18,7 @@ struct RecurringTasksView: View {
     var body: some View {
         NavigationStack {
             ZStack {
+                // Background gradient
                 LinearGradient(
                     gradient: Gradient(colors: [
                         Color(red: 0.85, green: 0.9, blue: 1.0),
@@ -31,8 +34,10 @@ struct RecurringTasksView: View {
                         .font(.largeTitle.bold())
                         .padding(.top)
 
+                    // scrollable filter buttons
                     filterButtons
 
+                    // Empty state view
                     if filteredTasks.isEmpty {
                         Spacer()
                         VStack(spacing: 12) {
@@ -45,12 +50,16 @@ struct RecurringTasksView: View {
                         }
                         Spacer()
                     } else {
+                        // Scrollable task list
                         ScrollView {
                             LazyVStack(spacing: 16) {
                                 ForEach(filteredTasks.indices, id: \.self) { index in
                                     let task = filteredTasks[index]
-                                    NavigationLink(destination: RecurringTaskDetailView(task: task, taskIndex: index)
-                                        .environmentObject(recurringManager)) {
+                                    // Navigate to detail view for each task
+                                    NavigationLink(
+                                        destination: RecurringTaskDetailView(task: task, taskIndex: index)
+                                            .environmentObject(recurringManager)
+                                    ) {
                                         recurringTaskCard(task)
                                     }
                                     .buttonStyle(PlainButtonStyle())
@@ -75,6 +84,7 @@ struct RecurringTasksView: View {
                 }
             }
             .sheet(isPresented: $showAddRecurring) {
+                // Modal to create a new recurring task
                 NewRecurringTaskView()
                     .environmentObject(recurringManager)
                     .environmentObject(groupManager)
@@ -82,6 +92,7 @@ struct RecurringTasksView: View {
         }
     }
 
+    // Generates filter buttons for All, Daily, Weekly, Monthly, Yearly
     private var filterButtons: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 10) {
@@ -95,6 +106,7 @@ struct RecurringTasksView: View {
         }
     }
 
+    // reusable styled capsule button for filtering by recurrence
     private func filterButton(title: String, type: RecurringInterval?) -> some View {
         Button(action: {
             selectedFilter = type
@@ -117,12 +129,14 @@ struct RecurringTasksView: View {
         }
     }
 
+    // Card layout for a single recurring task with time info
     private func recurringTaskCard(_ task: RecurringTask) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             Text(task.title)
                 .font(.headline)
                 .foregroundColor(.primary)
 
+            // If time-sensitive, show time info based on type
             if task.isTimeSensitive {
                 switch task.timeSensitivityType {
                 case .dueBy:
@@ -147,6 +161,7 @@ struct RecurringTasksView: View {
                     EmptyView()
                 }
             } else {
+                // Fallback if not time-sensitive
                 Text(task.recurringInterval.rawValue)
                     .font(.caption)
                     .foregroundColor(.secondary)
@@ -161,6 +176,7 @@ struct RecurringTasksView: View {
         )
     }
 
+    // Returns filtered list based on the selected recurrence interval
     private var filteredTasks: [RecurringTask] {
         if let filter = selectedFilter {
             return recurringManager.tasks.filter { $0.recurringInterval == filter }
@@ -169,6 +185,7 @@ struct RecurringTasksView: View {
         }
     }
 
+    // Utility to remove tasks by IndexSet
     private func deleteRecurringTask(at offsets: IndexSet) {
         let mappedOffsets = IndexSet(offsets.map { index in
             recurringManager.tasks.firstIndex(where: { $0.id == filteredTasks[index].id }) ?? index

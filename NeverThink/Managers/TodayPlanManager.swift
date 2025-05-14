@@ -7,7 +7,10 @@
 import Foundation
 import SwiftUI
 
+// Manages all AI-generated daily plans, organized by date.
+// Handles in-memory storage, task operations, and UserDefaults persistence.
 class TodayPlanManager: ObservableObject {
+    // A dictionary mapping dates to arrays of planned tasks
     @Published var todayPlansByDate: [Date: [PlannedTask]] = [:] {
         didSet {
             saveToDisk()
@@ -17,30 +20,33 @@ class TodayPlanManager: ObservableObject {
     init() {
         loadFromDisk()
     }
-
+    
+    // Saves a full set of planned tasks for a given day
     func saveTodayPlan(for date: Date, _ tasks: [PlannedTask]) {
         Task { @MainActor in
             replaceAllTasks(for: date, with: tasks)
         }
     }
-
+    
+    // Returns the full plan for a specific date (or an empty array if none)
     func getTodayPlan(for date: Date) -> [PlannedTask] {
         let normalizedDate = Calendar.current.startOfDay(for: date)
         return todayPlansByDate[normalizedDate] ?? []
     }
     
+    // Returns true if a plan exists for a given date
     func hasPlan(for date: Date) -> Bool {
         let normalizedDate = Calendar.current.startOfDay(for: date)
         return !(todayPlansByDate[normalizedDate]?.isEmpty ?? true)
     }
 
-
+    // Removes the plan for a given date
     func clearTodayPlan(for date: Date) {
         let normalizedDate = Calendar.current.startOfDay(for: date)
         todayPlansByDate.removeValue(forKey: normalizedDate)
     }
 
-
+    // Replaces an existing task with a new version (same ID)
     func updateTask(_ task: PlannedTask) {
         let normalizedDate = Calendar.current.startOfDay(for: task.date)
 
@@ -51,6 +57,7 @@ class TodayPlanManager: ObservableObject {
         }
     }
     
+    // Removes a task with a given UUID from any day's plan
     func removeTaskById(_ id: UUID) {
         for (date, tasks) in todayPlansByDate {
             if let index = tasks.firstIndex(where: { $0.id == id.uuidString }) {
@@ -61,7 +68,7 @@ class TodayPlanManager: ObservableObject {
         }
     }
 
-
+    // Inserts or updates a task for the day it belongs to
     func replaceOrInsertTask(_ task: PlannedTask) {
         let normalizedDate = Calendar.current.startOfDay(for: task.date)
         if var tasksForDate = todayPlansByDate[normalizedDate] {
@@ -76,7 +83,7 @@ class TodayPlanManager: ObservableObject {
         }
     }
 
-
+    // Marks a task as completed and persists the change
     func markTaskCompleted(_ task: PlannedTask) {
         let day = Calendar.current.startOfDay(for: task.date)
         if var tasks = todayPlansByDate[day],
@@ -87,7 +94,7 @@ class TodayPlanManager: ObservableObject {
         }
     }
 
-
+    // Replaces the entire task list for a given day, with animation
     @MainActor
     func replaceAllTasks(for date: Date, with newTasks: [PlannedTask]) {
         let normalizedDate = Calendar.current.startOfDay(for: date)
@@ -96,6 +103,7 @@ class TodayPlanManager: ObservableObject {
         }
     }
 
+    // Persistence
 
     private func saveToDisk() {
         let encoder = JSONEncoder()

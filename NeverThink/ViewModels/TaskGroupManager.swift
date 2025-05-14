@@ -6,16 +6,18 @@
 import Foundation
 import SwiftUI
 
+// Manages grouped user tasks by date and handles scheduling conflicts.
 class TaskGroupManager: ObservableObject {
-    @Published var groups: [TaskGroup] = []
-    @Published var autoConflictQueue: [UserTask] = []
-    @Published var manualRescheduleQueue: [UserTask] = []
-    
-    
-    
+    @Published var groups: [TaskGroup] = []                        // List of date-based task groups
+    @Published var autoConflictQueue: [UserTask] = []              // Tasks with detected conflicts
+    @Published var manualRescheduleQueue: [UserTask] = []          // Tasks flagged manually for rescheduling
+
+    // Combined queue for UI display or batch rescheduling logic
     var rescheduleQueue: [UserTask] {
         autoConflictQueue + manualRescheduleQueue
     }
+
+    // Group Management
 
     func addGroup(name: String) {
         let newGroup = TaskGroup(name: name, tasks: [])
@@ -46,6 +48,8 @@ class TaskGroupManager: ObservableObject {
         saveToDisk()
         detectAndQueueConflicts()
     }
+    
+    // Task Management
 
     func addTask(_ task: UserTask) {
         guard let taskDate = task.date else { return }
@@ -88,6 +92,7 @@ class TaskGroupManager: ObservableObject {
                 break
             }
         }
+        // Also remove from conflict/reschedule queues
         manualRescheduleQueue.removeAll { $0.id == id }
         autoConflictQueue.removeAll { $0.id == id }
         objectWillChange.send()
@@ -107,6 +112,7 @@ class TaskGroupManager: ObservableObject {
         }
     }
     
+    // Filters tasks that are completed on a given date
     func completedTasks(for date: Date) -> [UserTask] {
         let day = Calendar.current.startOfDay(for: date)
         return allTasks.filter {
@@ -116,6 +122,7 @@ class TaskGroupManager: ObservableObject {
         }
     }
 
+    // Removes duplicate task IDs from both conflict queues
     func deduplicateRescheduleQueues() {
         manualRescheduleQueue = deduplicatedTasks(from: manualRescheduleQueue)
         autoConflictQueue = deduplicatedTasks(from: autoConflictQueue)
@@ -136,7 +143,7 @@ class TaskGroupManager: ObservableObject {
     }
 
 
-
+    // Sorts groups by their date string (assumes date format is consistent)
     private func sortGroups() {
         let formatter = DateFormatter()
         formatter.dateStyle = .long
@@ -147,6 +154,7 @@ class TaskGroupManager: ObservableObject {
         }
     }
 
+    // Detects overlapping tasks and queues them for automatic conflict resolution
     func detectAndQueueConflicts() {
         var conflicts: Set<UUID> = []
         let tasksWithTime = allTasks.filter { $0.exactTime != nil }
@@ -175,7 +183,7 @@ class TaskGroupManager: ObservableObject {
 
 
 
-
+    // Checks if two tasks overlap in time
     private func isConflict(_ a: UserTask, _ b: UserTask) -> Bool {
         guard let aStart = a.exactTime, let bStart = b.exactTime else { return false }
         let aEnd = Calendar.current.date(byAdding: .minute, value: a.duration, to: aStart)!
@@ -185,6 +193,7 @@ class TaskGroupManager: ObservableObject {
 
 }
 extension TaskGroupManager {
+    // Updates all tasks in a specific group
     func updateTasks(for groupId: UUID, tasks: [UserTask]) {
         if let index = groups.firstIndex(where: { $0.id == groupId }) {
             groups[index].tasks = tasks

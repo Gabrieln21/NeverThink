@@ -4,19 +4,26 @@
 //
 //  Created by Gabriel Fernandez on 5/02/25.
 //
+
 import SwiftUI
 
+// View that allows the user to assign hard deadlines to tasks
 struct HardDeadlineSelectionView: View {
-    var tasks: [UserTask]
-    var onFinish: (_ deadlines: [UUID: Date]) -> Void
+    var tasks: [UserTask]                             // The list of tasks to assign deadlines to
+    var onFinish: (_ deadlines: [UUID: Date]) -> Void // Callback when the user finishes selection
 
     @Environment(\.presentationMode) var presentationMode
+
+    // Dictionary to track selected deadlines per task
     @State private var deadlines: [UUID: Date] = [:]
+
+    // Dictionary to track whether time should be included per task
     @State private var showTimePicker: [UUID: Bool] = [:]
 
     var body: some View {
         NavigationStack {
             ZStack {
+                //  Gradient background
                 LinearGradient(
                     gradient: Gradient(colors: [
                         Color(red: 0.85, green: 0.9, blue: 1.0),
@@ -33,16 +40,19 @@ struct HardDeadlineSelectionView: View {
                             .font(.largeTitle.bold())
                             .padding(.top)
 
+                        // Fallback if no tasks provided
                         if tasks.isEmpty {
                             Text("No tasks to set deadlines for.")
                                 .foregroundColor(.gray)
                         } else {
+                            // Loop through each task and show UI for deadline input
                             ForEach(tasks) { task in
                                 VStack(alignment: .leading, spacing: 12) {
                                     Text(task.title)
                                         .font(.headline)
 
                                     HStack {
+                                        // Date only picker
                                         DatePicker(
                                             "",
                                             selection: Binding(
@@ -55,6 +65,7 @@ struct HardDeadlineSelectionView: View {
 
                                         Spacer()
 
+                                        // Toggle to allow time-based precision
                                         Toggle("Exact Time", isOn: Binding(
                                             get: { showTimePicker[task.id] ?? false },
                                             set: { showTimePicker[task.id] = $0 }
@@ -63,6 +74,7 @@ struct HardDeadlineSelectionView: View {
                                         .font(.caption)
                                     }
 
+                                    // Optional time picker if enabled
                                     if showTimePicker[task.id] ?? false {
                                         DatePicker(
                                             "",
@@ -86,6 +98,7 @@ struct HardDeadlineSelectionView: View {
 
                         Spacer(minLength: 30)
 
+                        // Buttons: Cancel and Continue
                         HStack(spacing: 12) {
                             Button("Cancel") {
                                 presentationMode.wrappedValue.dismiss()
@@ -97,6 +110,7 @@ struct HardDeadlineSelectionView: View {
                             .cornerRadius(12)
 
                             Button("Continue") {
+                                // Pass selected deadlines back and dismiss
                                 onFinish(deadlines)
                                 presentationMode.wrappedValue.dismiss()
                             }

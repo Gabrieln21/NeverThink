@@ -2,16 +2,18 @@
 //  EditPlannedTaskView.swift
 //  NeverThink
 //
+
 import SwiftUI
 
+// A view for editing the properties of a PlannedTask, including time, duration, urgency, and location.
 struct EditPlannedTaskView: View {
     @EnvironmentObject var preferences: UserPreferencesService
     @Environment(\.presentationMode) var presentationMode
 
-
     @State var task: PlannedTask
     var onSave: (PlannedTask) -> Void
 
+    // Editable fields for task properties
     @State private var title: String
     @State private var isTimeSensitive: Bool = true
     @State private var timeSensitivityType: TimeSensitivity = .startsAt
@@ -31,11 +33,9 @@ struct EditPlannedTaskView: View {
     @State private var showNotes: Bool = false
     @State private var showReason: Bool = false
 
+    // Enum to represent user’s location selection style
     enum LocationType: Identifiable, Hashable {
-        case home
-        case anywhere
-        case saved(UUID)
-        case custom
+        case home, anywhere, saved(UUID), custom
 
         var id: String {
             switch self {
@@ -47,6 +47,7 @@ struct EditPlannedTaskView: View {
         }
     }
 
+    // Initializes the edit view with default state
     init(task: PlannedTask, onSave: @escaping (PlannedTask) -> Void) {
         self.task = task
         self.onSave = onSave
@@ -69,6 +70,7 @@ struct EditPlannedTaskView: View {
         _durationMinutes = State(initialValue: "\(duration % 60)")
         _location = State(initialValue: task.location ?? "")
 
+        // Auto-detect location type based on value
         if task.location == "Home" {
             _selectedLocationType = State(initialValue: .home)
         } else if task.location == "Anywhere" {
@@ -84,9 +86,11 @@ struct EditPlannedTaskView: View {
     var body: some View {
         NavigationView {
             Form {
+                // Basic task info
                 Section(header: Text("Task Info")) {
                     TextField("Title", text: $title)
 
+                    // Duration input
                     VStack(alignment: .leading, spacing: 8) {
                         Text("Duration:")
                         HStack {
@@ -105,6 +109,7 @@ struct EditPlannedTaskView: View {
 
                     Toggle("Time Sensitive", isOn: $isTimeSensitive)
 
+                    // If task is time-sensitive, allow type and time input
                     if isTimeSensitive {
                         Picker("Time Type", selection: $timeSensitivityType) {
                             ForEach(TimeSensitivity.allCases) { type in
@@ -113,6 +118,7 @@ struct EditPlannedTaskView: View {
                         }
                         .pickerStyle(.segmented)
 
+                        // Dynamic time inputs based on sensitivity type
                         Group {
                             if timeSensitivityType == .dueBy {
                                 DatePicker("Due by", selection: $exactTime, displayedComponents: .hourAndMinute)
@@ -126,6 +132,7 @@ struct EditPlannedTaskView: View {
                         .id(timeSensitivityType)
                     }
 
+                    // Urgency selection
                     Picker("Urgency", selection: $urgency) {
                         ForEach(UrgencyLevel.allCases, id: \.self) { level in
                             Text(level.rawValue.capitalized)
@@ -134,6 +141,7 @@ struct EditPlannedTaskView: View {
                     .pickerStyle(.segmented)
                 }
 
+                // Location management section
                 Section(header: Text("Location")) {
                     Picker("Location Type", selection: $selectedLocationType) {
                         Text("🏠 Home").tag(LocationType.home)
@@ -144,6 +152,7 @@ struct EditPlannedTaskView: View {
                         Text("📍 Custom").tag(LocationType.custom)
                     }
                     .onChange(of: selectedLocationType) { type in
+                        // Update bound location field when picker changes
                         switch type {
                         case .home:
                             location = "Home"
@@ -165,6 +174,7 @@ struct EditPlannedTaskView: View {
                     }
                 }
 
+                // Optional notes and reasoning fields
                 DisclosureGroup("📝 Notes", isExpanded: $showNotes) {
                     TextEditor(text: $notes)
                         .frame(height: 100)
@@ -179,6 +189,7 @@ struct EditPlannedTaskView: View {
                         .padding(.vertical, 4)
                 }
 
+                // Save/delete buttons
                 Section {
                     Button("Save Changes") {
                         saveEdits()
@@ -195,6 +206,7 @@ struct EditPlannedTaskView: View {
         }
     }
 
+    // Apply current state to task and pass result back to parent
     func saveEdits() {
         var updatedTask = task
         updatedTask.title = title
@@ -228,8 +240,7 @@ struct EditPlannedTaskView: View {
             switch selectedLocationType {
             case .home: return "Home"
             case .anywhere: return "Anywhere"
-            case .custom: return location.isEmpty ? nil : location
-            case .saved: return location.isEmpty ? nil : location
+            case .custom, .saved: return location.isEmpty ? nil : location
             }
         }()
 
@@ -237,6 +248,7 @@ struct EditPlannedTaskView: View {
         presentationMode.wrappedValue.dismiss()
     }
 
+    // Cancel editing and return original task
     func deleteTask() {
         onSave(task)
         presentationMode.wrappedValue.dismiss()

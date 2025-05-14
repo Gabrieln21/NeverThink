@@ -6,6 +6,7 @@
 //
 import SwiftUI
 
+// View for editing an existing recurring task.
 struct EditRecurringTaskView: View {
     @EnvironmentObject var recurringManager: RecurringTaskManager
     @EnvironmentObject var preferences: UserPreferencesService
@@ -15,6 +16,7 @@ struct EditRecurringTaskView: View {
     var taskIndex: Int
     var originalTask: RecurringTask
 
+    // Editable Fields
     @State private var title: String
     @State private var durationHours: String
     @State private var durationMinutes: String
@@ -29,6 +31,7 @@ struct EditRecurringTaskView: View {
     @State private var selectedSavedLocationId: UUID? = nil
     @State private var selectedLocationType: LocationType = .custom
 
+    // categorize how the location was selected
     enum LocationType: Identifiable, Hashable {
         case home
         case anywhere
@@ -45,6 +48,7 @@ struct EditRecurringTaskView: View {
         }
     }
 
+    // Initializes the form with the original task values
     init(taskIndex: Int, task: RecurringTask) {
         self.taskIndex = taskIndex
         self.originalTask = task
@@ -61,6 +65,7 @@ struct EditRecurringTaskView: View {
         _recurringInterval = State(initialValue: task.recurringInterval)
         _location = State(initialValue: task.location ?? "")
 
+        // Match saved location types
         if task.location == "Home" {
             _selectedLocationType = State(initialValue: .home)
         } else if task.location == "Anywhere" {
@@ -75,6 +80,7 @@ struct EditRecurringTaskView: View {
 
     var body: some View {
         ZStack {
+            // Background gradient
             LinearGradient(
                 gradient: Gradient(colors: [
                     Color(red: 0.85, green: 0.9, blue: 1.0),
@@ -91,13 +97,14 @@ struct EditRecurringTaskView: View {
                         .font(.largeTitle.bold())
                         .padding(.top)
 
+                    // Title input
                     Group {
                         Text("Title")
                             .font(.callout).foregroundColor(.secondary)
                         TextField("Enter task title", text: $title)
                             .textFieldStyle(RoundedBorderTextFieldStyle())
                     }
-
+                    // Duration input
                     Group {
                         Text("Duration")
                             .font(.callout).foregroundColor(.secondary)
@@ -115,7 +122,7 @@ struct EditRecurringTaskView: View {
                             Text("min")
                         }
                     }
-
+                    // Time sensitivity section
                     Group {
                         Toggle("Time Sensitive", isOn: $isTimeSensitive)
 
@@ -126,7 +133,8 @@ struct EditRecurringTaskView: View {
                                 }
                             }
                             .pickerStyle(.segmented)
-
+                            
+                            // Display relevant date pickers
                             if timeSensitivityType == .dueBy {
                                 DatePicker("Due by", selection: $exactTime, displayedComponents: [.hourAndMinute])
                             } else if timeSensitivityType == .startsAt {
@@ -138,6 +146,7 @@ struct EditRecurringTaskView: View {
                         }
                     }
 
+                    // Urgency picker
                     Group {
                         Text("Urgency")
                             .font(.callout).foregroundColor(.secondary)
@@ -149,6 +158,7 @@ struct EditRecurringTaskView: View {
                         .pickerStyle(SegmentedPickerStyle())
                     }
 
+                    // Urgency picker
                     Group {
                         Text("Location")
                             .font(.callout).foregroundColor(.secondary)
@@ -176,13 +186,14 @@ struct EditRecurringTaskView: View {
                                 location = ""
                             }
                         }
-
+                        // Custom location input field
                         if selectedLocationType == .custom {
                             TextField("Enter Address", text: $location)
                                 .textFieldStyle(RoundedBorderTextFieldStyle())
                         }
                     }
-
+                    
+                    // Recurrence interval picker
                     Group {
                         Text("Recurrence")
                             .font(.callout).foregroundColor(.secondary)
@@ -195,7 +206,8 @@ struct EditRecurringTaskView: View {
                         }
                         .pickerStyle(SegmentedPickerStyle())
                     }
-
+                    
+                    // Save button
                     Button(action: saveEdits) {
                         Text("Save Changes")
                             .frame(maxWidth: .infinity)
@@ -210,7 +222,8 @@ struct EditRecurringTaskView: View {
             }
         }
     }
-
+    
+    // Saves the user's edits back to the recurring task list.
     func saveEdits() {
         let totalDurationMinutes = (Int(durationHours) ?? 0) * 60 + (Int(durationMinutes) ?? 0)
 
@@ -235,7 +248,7 @@ struct EditRecurringTaskView: View {
             }(),
             category: category,
             recurringInterval: recurringInterval,
-            selectedWeekdays: originalTask.selectedWeekdays
+            selectedWeekdays: originalTask.selectedWeekdays // Keep same weekdays
         )
 
         recurringManager.updateTask(updatedTask, at: taskIndex)

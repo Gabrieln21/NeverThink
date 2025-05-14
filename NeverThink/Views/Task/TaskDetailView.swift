@@ -4,8 +4,10 @@
 //
 //  Created by Gabriel Fernandez on 4/25/25.
 //
+
 import SwiftUI
 
+// View to display all the details of a specific task
 struct TaskDetailView: View {
     @EnvironmentObject var groupManager: TaskGroupManager
     @Environment(\.presentationMode) var presentationMode
@@ -15,6 +17,7 @@ struct TaskDetailView: View {
 
     var body: some View {
         ZStack {
+            // Background gradient
             LinearGradient(
                 gradient: Gradient(colors: [
                     Color(red: 0.85, green: 0.9, blue: 1.0),
@@ -27,10 +30,12 @@ struct TaskDetailView: View {
 
             ScrollView {
                 VStack(alignment: .leading, spacing: 24) {
+                    // Title section
                     Text("Task Details")
                         .font(.largeTitle.bold())
                         .padding(.top)
 
+                    // Task title
                     Group {
                         Text("Title")
                             .font(.callout).foregroundColor(.secondary)
@@ -38,6 +43,7 @@ struct TaskDetailView: View {
                             .font(.title2.bold())
                     }
 
+                    // Duration info
                     Group {
                         Text("Duration")
                             .font(.callout).foregroundColor(.secondary)
@@ -48,6 +54,7 @@ struct TaskDetailView: View {
                         .font(.body)
                     }
 
+                    // Time sensitivity info
                     if task.isTimeSensitive {
                         Group {
                             Text("Time Info")
@@ -72,6 +79,7 @@ struct TaskDetailView: View {
                         }
                     }
 
+                    // Urgency level
                     Group {
                         Text("Urgency")
                             .font(.callout).foregroundColor(.secondary)
@@ -79,6 +87,7 @@ struct TaskDetailView: View {
                             .font(.body)
                     }
 
+                    // Location info (if set)
                     if task.isLocationSensitive, let loc = task.location {
                         Group {
                             Text("Location")
@@ -87,6 +96,7 @@ struct TaskDetailView: View {
                         }
                     }
 
+                    // Task category
                     Group {
                         Text("Category")
                             .font(.callout).foregroundColor(.secondary)
@@ -95,6 +105,7 @@ struct TaskDetailView: View {
 
                     Divider()
 
+                    // Delete button
                     Button(role: .destructive) {
                         deleteTask()
                     } label: {
@@ -114,13 +125,17 @@ struct TaskDetailView: View {
         }
         .navigationTitle("Task Details")
         .toolbar {
-            NavigationLink(destination: EditTaskView(taskIndex: taskIndex, task: task)
-                .environmentObject(groupManager)) {
+            // Edit button in toolbar
+            NavigationLink(
+                destination: EditTaskView(taskIndex: taskIndex, task: task)
+                    .environmentObject(groupManager)
+            ) {
                 Image(systemName: "pencil")
             }
         }
     }
 
+    // Deletes the task from the group and closes the view
     private func deleteTask() {
         if let groupIndex = groupManager.groups.firstIndex(where: { group in
             group.tasks.contains(where: { $0.id == task.id })

@@ -6,13 +6,14 @@
 //
 import SwiftUI
 
+// View for creating a new recurring task
 struct NewRecurringTaskView: View {
     @EnvironmentObject var recurringManager: RecurringTaskManager
     @EnvironmentObject var groupManager: TaskGroupManager
     @EnvironmentObject var preferences: UserPreferencesService
-
     @Environment(\.presentationMode) var presentationMode
 
+    // Task Form State
     @State private var title: String = ""
     @State private var durationHours: String = "0"
     @State private var durationMinutes: String = "0"
@@ -28,6 +29,7 @@ struct NewRecurringTaskView: View {
     @State private var selectedLocationType: LocationType = .home
     @State private var selectedSavedLocationId: UUID? = nil
 
+    // Classifies how the user selected a location
     enum LocationType: Identifiable, Hashable {
         case home
         case anywhere
@@ -46,6 +48,7 @@ struct NewRecurringTaskView: View {
 
     var body: some View {
         ZStack {
+            // Background gradient
             LinearGradient(
                 gradient: Gradient(colors: [
                     Color(red: 0.85, green: 0.9, blue: 1.0),
@@ -62,6 +65,7 @@ struct NewRecurringTaskView: View {
                         .font(.largeTitle.bold())
                         .padding(.top)
 
+                    // Title Field
                     Group {
                         Text("Title")
                             .font(.callout).foregroundColor(.secondary)
@@ -69,6 +73,7 @@ struct NewRecurringTaskView: View {
                             .textFieldStyle(RoundedBorderTextFieldStyle())
                     }
 
+                    // Duration (in hours/minutes)
                     Group {
                         Text("Duration")
                             .font(.callout).foregroundColor(.secondary)
@@ -87,6 +92,7 @@ struct NewRecurringTaskView: View {
                         }
                     }
 
+                    // Time Sensitivity Toggle & Pickers
                     Group {
                         Toggle("Time Sensitive", isOn: $isTimeSensitive)
 
@@ -109,6 +115,7 @@ struct NewRecurringTaskView: View {
                         }
                     }
 
+                    // Urgency Picker
                     Group {
                         Text("Task Importance")
                             .font(.callout).foregroundColor(.secondary)
@@ -120,6 +127,7 @@ struct NewRecurringTaskView: View {
                         .pickerStyle(SegmentedPickerStyle())
                     }
 
+                    // Location Picker + Custom Input
                     Group {
                         Text("Location")
                             .font(.callout).foregroundColor(.secondary)
@@ -154,6 +162,7 @@ struct NewRecurringTaskView: View {
                         }
                     }
 
+                    // Recurrence Picker + Weekly Day Selection
                     Group {
                         Text("Recurring Interval")
                             .font(.callout).foregroundColor(.secondary)
@@ -164,6 +173,7 @@ struct NewRecurringTaskView: View {
                         }
                         .pickerStyle(SegmentedPickerStyle())
 
+                        // Weekday buttons (only for .weekly)
                         if recurringInterval == .weekly {
                             HStack {
                                 ForEach(0..<7, id: \.self) { index in
@@ -193,6 +203,7 @@ struct NewRecurringTaskView: View {
                         }
                     }
 
+                    // Save Button
                     Button(action: saveRecurringTask) {
                         Text("Save Recurring Task")
                             .frame(maxWidth: .infinity)
@@ -208,6 +219,7 @@ struct NewRecurringTaskView: View {
         }
     }
 
+    // Persists the new recurring task and generates future tasks from it
     func saveRecurringTask() {
         let totalDurationMinutes = (Int(durationHours) ?? 0) * 60 + (Int(durationMinutes) ?? 0)
 
@@ -232,9 +244,11 @@ struct NewRecurringTaskView: View {
             recurringInterval: recurringInterval,
             selectedWeekdays: recurringInterval == .weekly ? selectedWeekdays : nil
         )
-
+        // Save task to recurring manager and auto-generate future tasks
         recurringManager.addTask(newRecurringTask)
         recurringManager.generateFutureTasks(for: newRecurringTask, into: groupManager)
+        
+        // Close the view
         presentationMode.wrappedValue.dismiss()
     }
 }

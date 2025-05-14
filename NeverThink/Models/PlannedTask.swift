@@ -4,33 +4,38 @@
 //
 //  Created by Gabriel Fernandez on 4/26/25.
 //
+
 import Foundation
 
+// Represents a scheduled task or event in the user's day.
+// Used by AI-generated plans
 struct PlannedTask: Codable, Identifiable {
-    var id: String = UUID().uuidString
-    var start_time: String
-    var end_time: String
-    var title: String
-    var notes: String?
-    var reason: String?
-    var date: Date = Calendar.current.startOfDay(for: Date())
-    var isCompleted: Bool = false
-    var duration: Int
-    var urgency: UrgencyLevel
-    var timeSensitivityType: TimeSensitivity = .startsAt
-    var location: String?
+    var id: String = UUID().uuidString                      // Unique identifier
+    var start_time: String                                  // Start time ("hh:mm a")
+    var end_time: String                                    // End time ("hh:mm a")
+    var title: String                                       // Task name or title
+    var notes: String?                                      // additional info or metadata
+    var reason: String?                                     // Why the task is scheduled
+    var date: Date = Calendar.current.startOfDay(for: Date()) // The calendar day this task belongs to
+    var isCompleted: Bool = false                           // Whether the user marked the task as done
+    var duration: Int                                       // Task length in minutes
+    var urgency: UrgencyLevel                               // How urgent the task is (low/medium/high)
+    var timeSensitivityType: TimeSensitivity = .startsAt    // Determines time flexibility
+    var location: String?                                   // Location where the task takes place
 
+    // Defines how strictly the task must occur at a certain time
     enum TimeSensitivity: String, Codable, CaseIterable {
-        case none
-        case dueBy
-        case startsAt
-        case busyFromTo
+        case none          // Flexible
+        case dueBy         // Must be completed before a deadline
+        case startsAt      // Must start at a specific time
+        case busyFromTo    // Must happen within a range
     }
 
     private enum CodingKeys: String, CodingKey {
         case id, start_time, end_time, title, notes, reason, date, isCompleted, duration, urgency, timeSensitivityType, location
     }
 
+    // initializer, calculates duration based on start/end time strings
     init(
         id: String = UUID().uuidString,
         start_time: String,
@@ -57,6 +62,7 @@ struct PlannedTask: Codable, Identifiable {
         self.location = location
     }
 
+    // Custom decoder that handles missing or older fields
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
 
@@ -79,6 +85,7 @@ struct PlannedTask: Codable, Identifiable {
         }
     }
 
+    // Calculates the duration in minutes between two time strings
     static func calculateDuration(from start: String, to end: String) -> Int {
         guard
             let startDate = DateFormatter.parseTimeString(start),

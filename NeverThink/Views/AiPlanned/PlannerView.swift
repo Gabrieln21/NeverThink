@@ -2,12 +2,15 @@
 //  PlannerView.swift
 //  NeverThink
 //
+
 import SwiftUI
 
+// Main view for generating and managing an AI-created daily schedule from a selected group of tasks.
 struct PlannerView: View {
     @EnvironmentObject var groupManager: TaskGroupManager
     @EnvironmentObject var todayPlanManager: TodayPlanManager
 
+    // State tracking for UI flow and task planning
     @State private var selectedGroup: TaskGroup? = nil
     @State private var generatedPlan: [PlannedTask] = []
     @State private var isLoading: Bool = false
@@ -22,6 +25,7 @@ struct PlannerView: View {
     var body: some View {
         NavigationView {
             ZStack {
+                // Background gradient
                 LinearGradient(
                     gradient: Gradient(colors: [Color(red: 0.9, green: 0.94, blue: 1.0), .white]),
                     startPoint: .topLeading,
@@ -30,18 +34,24 @@ struct PlannerView: View {
                 .ignoresSafeArea()
 
                 VStack {
+                    // If no group is selected yet
                     if selectedGroup == nil {
                         taskGroupSelection
-                    } else if let errorMessage = errorMessage {
+                    }
+                    // Display error if any
+                    else if let errorMessage = errorMessage {
                         Text(errorMessage)
                             .foregroundColor(.red)
                             .padding()
-                    } else {
+                    }
+                    // Main planner UI if group is selected
+                    else {
                         ScrollView {
                             VStack(alignment: .leading, spacing: 16) {
                                 if !generatedPlan.isEmpty {
                                     taskCardListView
-
+                                    
+                                    // Accept and regenerate buttons
                                     HStack(spacing: 12) {
                                         acceptPlanButton
                                         Button(action: {
@@ -59,10 +69,12 @@ struct PlannerView: View {
                                     }
                                     .padding(.horizontal)
 
+                                    // Optional regenerate UI
                                     if showRegenerateFields {
                                         regenerateSection
                                     }
                                 } else {
+                                    // First-time plan generation UI
                                     generatePromptSection
                                 }
                             }
@@ -73,6 +85,8 @@ struct PlannerView: View {
             }
             .navigationTitle("AI Daily Planner")
             .navigationBarTitleDisplayMode(.inline)
+
+            // Modal for editing an individual task
             .sheet(item: $selectedTaskForEditing) { task in
                 EditPlannedTaskView(task: task) { updatedTask in
                     if let index = generatedPlan.firstIndex(where: { $0.id == updatedTask.id }) {
@@ -81,9 +95,13 @@ struct PlannerView: View {
                     selectedTaskForEditing = nil
                 }
             }
+
+            // Modal for choosing transport mode
             .sheet(isPresented: $showTransportModeSheet) {
                 transportModeSheet
             }
+
+            // Show loading overlay during GPT call
             .overlay {
                 if isLoading {
                     Color.black.opacity(0.4).ignoresSafeArea()
@@ -95,12 +113,17 @@ struct PlannerView: View {
                         .cornerRadius(12)
                 }
             }
+
+            // Request user location for travel matrix when view loads
             .onAppear {
                 PlannerService.shared.requestLocation()
             }
         }
     }
 
+    // UI Sections
+
+    // UI for selecting a task group to generate a plan from
     private var taskGroupSelection: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
@@ -151,6 +174,7 @@ struct PlannerView: View {
         }
     }
 
+    // UI shown before plan generation with optional note input
     private var generatePromptSection: some View {
         VStack(alignment: .leading, spacing: 16) {
             Text("Optional: Add Notes")
@@ -169,6 +193,7 @@ struct PlannerView: View {
         .padding(.horizontal)
     }
 
+    // UI section shown after a plan is generated for optional tweaks
     private var regenerateSection: some View {
         VStack(alignment: .leading, spacing: 16) {
             Text("Want tweaks? Add Notes and Regenerate")
@@ -195,12 +220,13 @@ struct PlannerView: View {
         .padding(.bottom)
     }
 
+    // Saves current AI-generated plan to TodayPlanManager
     private var acceptPlanButton: some View {
         Button(action: {
             let normalizedDate = Calendar.current.startOfDay(for: selectedDate)
             let updatedTasks = generatedPlan.map { task in
                 var newTask = task
-                newTask.date = normalizedDate // ✅ Always set date directly
+                newTask.date = normalizedDate
                 return newTask
             }
 
@@ -219,7 +245,7 @@ struct PlannerView: View {
         .disabled(generatedPlan.isEmpty)
     }
 
-
+    // Launches transport mode sheet for plan generation
     private var generatePlanButton: some View {
         Button(action: {
             showTransportModeSheet = true
@@ -235,6 +261,7 @@ struct PlannerView: View {
         .disabled(selectedGroup == nil || isLoading)
     }
 
+    // Modal view for selecting how the user plans to travel
     private var transportModeSheet: some View {
         VStack(spacing: 20) {
             Text("How will you get around?")
@@ -259,6 +286,9 @@ struct PlannerView: View {
         .padding()
     }
 
+    // MARK: - Plan Logic
+
+    // Generates an AI plan from the selected group and transport mode
     private func generatePlan() {
         guard let group = selectedGroup else { return }
         isLoading = true
@@ -280,7 +310,7 @@ struct PlannerView: View {
         }
     }
 
-
+    // Regenerates the plan with additional user notes
     private func regeneratePlan() {
         guard let group = selectedGroup else { return }
         isLoading = true
@@ -302,6 +332,8 @@ struct PlannerView: View {
             isLoading = false
         }
     }
+
+    // Computes a time range string based on task sensitivity type
     private func timeRangeString(for task: PlannedTask) -> String? {
         let formatter = DateFormatter()
         formatter.dateFormat = "h:mm a"
@@ -312,19 +344,16 @@ struct PlannerView: View {
                let end = Calendar.current.date(byAdding: .minute, value: task.duration, to: start) {
                 return "\(formatter.string(from: start)) – \(formatter.string(from: end))"
             }
-
         case .dueBy:
             if let end = formatter.date(from: task.end_time),
                let start = Calendar.current.date(byAdding: .minute, value: -task.duration, to: end) {
                 return "\(formatter.string(from: start)) – \(formatter.string(from: end))"
             }
-
         case .busyFromTo:
             if let start = formatter.date(from: task.start_time),
                let end = formatter.date(from: task.end_time) {
                 return "\(formatter.string(from: start)) – \(formatter.string(from: end))"
             }
-
         case .none:
             return nil
         }
@@ -332,7 +361,7 @@ struct PlannerView: View {
         return nil
     }
 
-
+    // Displays the full list of AI-generated tasks
     private var taskCardListView: some View {
         ForEach(generatedPlan.indices, id: \.self) { index in
             let task = generatedPlan[index]
@@ -352,11 +381,14 @@ struct PlannerView: View {
     }
 }
 
+// A UI card representing a single planned task with urgency indicator, time range, and location info.
+// Supports editing (tap the card) and deleting (tap the red x button).
 private struct PlannerTaskCardView: View {
     let task: PlannedTask
     let onDelete: () -> Void
     let onEdit: () -> Void
-
+    
+    // Formats a readable time range string based on the task’s sensitivity type and duration
     private func timeRangeString(for task: PlannedTask) -> String? {
         let formatter = DateFormatter()
         formatter.dateFormat = "h:mm a"
@@ -389,29 +421,32 @@ private struct PlannerTaskCardView: View {
 
 
     var body: some View {
+        // Tapping the entire card allows editing the task
         Button(action: onEdit) {
             HStack(alignment: .top, spacing: 10) {
+                // Urgency color indicator (small circle)
                 Circle()
                     .fill(task.urgency.color)
                     .frame(width: 10, height: 10)
                     .padding(.top, 6)
-
+                // Task details section
                 VStack(alignment: .leading, spacing: 4) {
                     Text(task.title)
                         .font(.headline)
                         .foregroundColor(.primary)
 
                     Group {
+                        // Shows date and duration
                         Text("\(task.date.formatted(date: .abbreviated, time: .omitted)) • \(task.duration) min")
                             .font(.caption2)
                             .foregroundColor(.gray)
-
+                        // Shows location if available
                         if let loc = task.location, !loc.isEmpty {
                             Text("📍 \(loc)")
                                 .font(.caption2)
                                 .foregroundColor(.gray)
                         }
-
+                        // Shows reasoning text if available
                         if let reason = task.reason, !reason.isEmpty {
                             Text(reason)
                                 .font(.caption2)
@@ -421,7 +456,7 @@ private struct PlannerTaskCardView: View {
                 }
 
                 Spacer()
-
+                // Red delete icon on the right
                 Button(action: onDelete) {
                     Image(systemName: "xmark.circle.fill")
                         .foregroundColor(.red)
@@ -429,16 +464,16 @@ private struct PlannerTaskCardView: View {
                 .buttonStyle(.plain)
             }
             .padding()
-            .background(.ultraThinMaterial)
+            .background(.ultraThinMaterial) // Semi-transparent card background
             .cornerRadius(16)
             .shadow(color: .black.opacity(0.15), radius: 8, x: 0, y: 4)
             .padding(.horizontal)
         }
-        .buttonStyle(PlainButtonStyle())
+        .buttonStyle(PlainButtonStyle()) // Prevent tap highlighting
     }
 }
 
-
+// Style for the "Walk", "Drive", "Public Transit" buttons in the transport mode selector
 struct TransportButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label

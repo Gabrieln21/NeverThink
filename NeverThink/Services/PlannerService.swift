@@ -8,6 +8,7 @@
 import Foundation
 import CoreLocation
 
+// Structure passed to GPT for task formatting and reasoning
 private struct PromptTask: Codable {
     let id: String
     let title: String
@@ -20,6 +21,7 @@ private struct PromptTask: Codable {
     let reason: String
 }
 
+// Helper delegate to extract one-shot location fix
 private class LocationDelegate: NSObject, CLLocationManagerDelegate {
     let onLocationFix: (CLLocation) -> Void
 
@@ -39,7 +41,7 @@ private class LocationDelegate: NSObject, CLLocationManagerDelegate {
     }
 }
 
-
+// Core scheduling engine that generates AI-based daily plans, including travel logic and OpenAI integration.
 class PlannerService: NSObject, CLLocationManagerDelegate {
     static let shared = PlannerService()
 
@@ -58,6 +60,7 @@ class PlannerService: NSObject, CLLocationManagerDelegate {
         self.apiKey = apiKey
     }
 
+    // Requests a single location update
     func requestLocation() {
         locationManager = CLLocationManager()
         locationManager?.delegate = self
@@ -78,7 +81,8 @@ class PlannerService: NSObject, CLLocationManagerDelegate {
         locationContinuation?.resume(throwing: error)
         locationContinuation = nil
     }
-
+    
+    // Uses shared LocationService if a fix is available. Else throws.
     func getCurrentLocation() async throws -> CLLocationCoordinate2D {
         print("📍 [getCurrentLocation] Called")
 
@@ -98,7 +102,7 @@ class PlannerService: NSObject, CLLocationManagerDelegate {
 
 
 
-
+    // Main function to generate a full-day plan using AI and travel data
     func generatePlan(from tasks: [UserTask], for date: Date, transportMode: String, extraNotes: String = "") async throws -> [PlannedTask] {
         guard let apiKey = apiKey else {
             throw NSError(domain: "PlannerService", code: 0, userInfo: [NSLocalizedDescriptionKey: "API Key not configured"])
@@ -108,7 +112,8 @@ class PlannerService: NSObject, CLLocationManagerDelegate {
 
 
         let home = AuthenticationManager.shared.homeAddress
-
+        
+        // Sanitize and serialize user tasks for GPT input
         // Build travel hints
         let cleanedTasks = tasks.filter {
             !$0.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && $0.duration > 0
@@ -187,7 +192,7 @@ class PlannerService: NSObject, CLLocationManagerDelegate {
 
 
         
-        
+        // If travel fetches failed badly, fail early
         let failures = travelHints.components(separatedBy: "\n").filter { $0.contains("Failed to fetch") }
         if failures.count > 4 {
             print("❌ Travel Fetch Failures:\n" + failures.joined(separator: "\n"))
@@ -207,7 +212,7 @@ class PlannerService: NSObject, CLLocationManagerDelegate {
         📝 **User Additional Notes / Problems with previous AI plan:**
         \(extraNotes)
         """
-
+        // Generate english-language system prompt for GPT
         let prompt = """
         You are an intelligent personal assistant planning times for tasks strategically for a real person's day.
 
@@ -749,6 +754,8 @@ import Foundation
 import CoreLocation
 
 extension PlannerService {
+    // Builds a travel time matrix string using Google Maps travel durations.
+    // Includes directions between: current location → task, task → home, and home → task.
     func buildTravelMatrix(
         fromAddress originAddress: String,
         tasks: [UserTask],
@@ -756,7 +763,8 @@ extension PlannerService {
         mode: String
     ) async throws -> String {
         print("🚀 [buildTravelMatrix] Starting travel matrix build")
-
+        
+        // Default to saved home address if current location fails
         var originString = AuthenticationManager.shared.homeAddress
         print("📍 [buildTravelMatrix] Initial originString: \(originString)")
 
@@ -767,7 +775,7 @@ extension PlannerService {
                     print("🧭 [buildTravelMatrix] getCurrentLocation() task started")
                     return try await self.getCurrentLocation()
                 }
-
+                // Fallback if location takes too long
                 group.addTask {
                     print("⏱️ [buildTravelMatrix] Timeout fallback task started")
                     try await Task.sleep(nanoseconds: 10 * 1_000_000_000)
@@ -792,6 +800,7 @@ extension PlannerService {
         var matrixEntries: [String] = []
         var travelTimeCache = [String: TravelInfo]()
 
+        // Normalize input strings to be cache-safe
         func cacheKey(_ from: String?, _ to: String?) -> String {
             let normalize: (String?) -> String = {
                 ($0 ?? "").lowercased().replacingOccurrences(of: "[^a-z0-9]", with: "", options: .regularExpression)
@@ -799,6 +808,7 @@ extension PlannerService {
             return "\(normalize(from))_to_\(normalize(to))"
         }
 
+        // Cleans up task location strings
         func clean(_ s: String?) -> String? {
             guard let trimmed = s?.trimmingCharacters(in: .whitespacesAndNewlines),
                   !["", "n/a", "anywhere", "none"].contains(trimmed.lowercased()) else { return nil }
@@ -808,7 +818,8 @@ extension PlannerService {
         let homeClean = clean(home)
         let validTasks = tasks.filter { $0.isLocationSensitive && clean($0.location) != nil }
         print("🔍 [buildTravelMatrix] Valid location-sensitive tasks: \(validTasks.count)")
-
+        
+        // Skip if no tasks require travel
         if validTasks.isEmpty {
             print("⚠️ [buildTravelMatrix] No valid tasks with location data. Returning early.")
             return ""
@@ -816,6 +827,7 @@ extension PlannerService {
 
         print("🧵 [buildTravelMatrix] Launching travel time fetch group...")
 
+        // Perform async travel fetches in parallel
         try await withThrowingTaskGroup(of: String?.self) { group in
             for task in validTasks {
                 guard let taskAddress = clean(task.location) else {
@@ -888,7 +900,7 @@ extension PlannerService {
                     }
                 }
             }
-
+            // Collect all results into final matrix list
             var count = 0
             for try await result in group {
                 count += 1

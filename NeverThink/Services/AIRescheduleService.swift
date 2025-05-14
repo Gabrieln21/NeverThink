@@ -6,10 +6,13 @@
 //
 import Foundation
 
+// Handles sending rescheduling requests to OpenAI using GPT
 struct AIRescheduleService {
+    // Sends a prompt to GPT and returns the JSON-formatted rescheduled task list
     static func requestReschedulePlan(prompt: String) async throws -> String {
         print("🚀 Starting GPT reschedule request")
-
+        
+        // Ensure the API key is available
         guard let apiKey = PlannerService.shared.apiKey else {
             print("❌ Missing OpenAI API key from PlannerService")
             throw URLError(.userAuthenticationRequired)
@@ -23,6 +26,7 @@ struct AIRescheduleService {
             throw URLError(.badURL)
         }
 
+        // Prepare the API request
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
@@ -61,7 +65,7 @@ struct AIRescheduleService {
             "temperature": 0.7
         ]
 
-
+        // Serialize the JSON request body
         print("🧪 Attempting to serialize request body")
         do {
             let bodyData = try JSONSerialization.data(withJSONObject: body, options: [.prettyPrinted])
@@ -76,7 +80,7 @@ struct AIRescheduleService {
             print("❌ JSON encoding failed: \(error.localizedDescription)")
             throw error
         }
-
+        // Perform the network request
         do {
             print("📡 Sending request to GPT...")
             let (data, response) = try await URLSession.shared.data(for: request)
@@ -91,7 +95,8 @@ struct AIRescheduleService {
             }
 
             print("✅ Got data back from GPT")
-
+            
+            // Decode the OpenAI chat response
             let decoded = try JSONDecoder().decode(OpenAIChatResponse.self, from: data)
             guard let firstChoice = decoded.choices.first else {
                 print("❌ GPT response had no choices")
@@ -106,7 +111,7 @@ struct AIRescheduleService {
         }
     }
 }
-
+// Model to decode GPT chat responses
 struct OpenAIChatResponse: Codable {
     struct Choice: Codable {
         struct Message: Codable {

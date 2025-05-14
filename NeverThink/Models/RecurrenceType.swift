@@ -7,6 +7,7 @@
 
 import Foundation
 
+// Represents how often a recurring task repeats.
 enum RecurrenceType: String, CaseIterable, Identifiable, Codable {
     case daily = "Daily"
     case weekly = "Weekly"

@@ -8,6 +8,7 @@
 import Foundation
 import SwiftUI
 
+// Manages recurring tasks and handles persistence
 class RecurringTaskManager: ObservableObject {
     @Published var tasks: [RecurringTask] = []
 
@@ -32,6 +33,7 @@ class RecurringTaskManager: ObservableObject {
 }
 
 extension RecurringTaskManager {
+    // Generates a flat list of future user tasks from a recurring pattern
     func generateFutureTasks(for recurringTask: RecurringTask, into groupManager: TaskGroupManager) {
         let calendar = Calendar.current
         let today = Date()
@@ -48,13 +50,13 @@ extension RecurringTaskManager {
                     continue
                 }
             }
-
+            // Adjusts the time on a date to match the recurring task's preferred time
             func adjustTime(_ time: Date?) -> Date? {
                 guard let time = time else { return nil }
                 let components = calendar.dateComponents([.hour, .minute], from: time)
                 return calendar.date(bySettingHour: components.hour ?? 0, minute: components.minute ?? 0, second: 0, of: currentDate)
             }
-
+            // Generate the actual task instance for the day
             let newTask = UserTask(
                 id: UUID(),
                 title: recurringTask.title,
@@ -91,11 +93,13 @@ extension RecurringTaskManager {
     }
 }
 extension RecurringTaskManager {
+    // File path for storing tasks
     private var fileURL: URL {
         let path = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
         return path.appendingPathComponent("recurring_tasks.json")
     }
-
+    
+    // Persistence fucntions
     func saveToDisk() {
         do {
             let data = try JSONEncoder().encode(tasks)

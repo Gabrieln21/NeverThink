@@ -4,17 +4,20 @@
 //
 //  Created by Gabriel Fernandez on 4/26/25.
 //
+
 import SwiftUI
 
+// A detail view showing the information of a recurring task
 struct RecurringTaskDetailView: View {
     @EnvironmentObject var recurringTaskManager: RecurringTaskManager
     @Environment(\.presentationMode) var presentationMode
 
-    var task: RecurringTask
-    var taskIndex: Int
+    var task: RecurringTask            // The task
+    var taskIndex: Int                 // Its index in the recurring task list
 
     var body: some View {
         ZStack {
+            // Background gradient
             LinearGradient(
                 gradient: Gradient(colors: [
                     Color(red: 0.85, green: 0.9, blue: 1.0),
@@ -27,10 +30,12 @@ struct RecurringTaskDetailView: View {
 
             ScrollView {
                 VStack(alignment: .leading, spacing: 24) {
+                    // Header
                     Text("Recurring Task")
                         .font(.largeTitle.bold())
                         .padding(.top)
 
+                    // Task Title
                     Group {
                         Text("Title")
                             .font(.callout)
@@ -39,6 +44,7 @@ struct RecurringTaskDetailView: View {
                             .font(.title2.bold())
                     }
 
+                    // Recurrence Interval Display
                     Group {
                         Text("Recurrence")
                             .font(.callout)
@@ -50,12 +56,14 @@ struct RecurringTaskDetailView: View {
                         .font(.body)
                     }
 
+                    // Optional Time Information (only shown if time-sensitive)
                     if task.isTimeSensitive {
                         Group {
                             Text("Time Info")
                                 .font(.callout)
                                 .foregroundColor(.secondary)
 
+                            // Switch based on time sensitivity type
                             switch task.timeSensitivityType {
                             case .dueBy:
                                 if let dueBy = task.exactTime {
@@ -77,6 +85,7 @@ struct RecurringTaskDetailView: View {
 
                     Divider()
 
+                    // Delete Button
                     Button(role: .destructive) {
                         deleteTask()
                     } label: {
@@ -95,6 +104,7 @@ struct RecurringTaskDetailView: View {
             }
         }
         .toolbar {
+            // Navigation to Edit Task
             ToolbarItem(placement: .navigationBarTrailing) {
                 NavigationLink(
                     destination: EditRecurringTaskView(taskIndex: taskIndex, task: task)
@@ -106,6 +116,7 @@ struct RecurringTaskDetailView: View {
         }
     }
 
+    // Deletes the current recurring task and dismisses the view
     func deleteTask() {
         recurringTaskManager.deleteRecurringTask(at: IndexSet(integer: taskIndex))
         presentationMode.wrappedValue.dismiss()

@@ -7,9 +7,10 @@
 
 import Foundation
 
+// Manages and persists user preferences such as home address, notification settings, and sleep schedule.
 class UserPreferencesService: ObservableObject {
     @Published var homeAddress: String = ""
-    @Published var commonLocations: [SavedLocation] = []
+    @Published var commonLocations: [SavedLocation] = [] // List of user-saved locations
     @Published var wakeUpTime: Date = Date()
     @Published var sleepTime: Date = Date()
     @Published var notifyReminders: Bool = true
@@ -20,6 +21,7 @@ class UserPreferencesService: ObservableObject {
         load()
     }
 
+    // Saves all user preference values to UserDefaults
     func save() {
         let encoder = JSONEncoder()
         if let data = try? encoder.encode(commonLocations) {
@@ -33,7 +35,8 @@ class UserPreferencesService: ObservableObject {
         UserDefaults.standard.set(notifyUpcomingTasks, forKey: "notifyUpcomingTasks")
         UserDefaults.standard.set(notifyTravelWarnings, forKey: "notifyTravelWarnings")
     }
-
+    
+    // Loads all user preference values from UserDefaults
     func load() {
         let decoder = JSONDecoder()
         if let data = UserDefaults.standard.data(forKey: "commonLocations"),

@@ -4,20 +4,22 @@
 //
 //  Created by Gabriel Fernandez on 5/02/25.
 //
+
 import SwiftUI
 
+// A modal view that allows users to select tasks to include in AI optimization
 struct AIOptimizationModalView: View {
-    let tasks: [UserTask]
+    let tasks: [UserTask] // List of tasks passed in
     var onConfirm: ([UserTask]) -> Void
 
     @Environment(\.dismiss) var dismiss
-    @State private var selected: Set<UUID> = []
-    @State private var selectAll: Bool = true
+    @State private var selected: Set<UUID> = [] // Tracks which tasks are selected
+    @State private var selectAll: Bool = true // Controls "Select All" toggle
 
     var body: some View {
         NavigationStack {
             ZStack {
-                // Light blue gradient background
+                // background gradient
                 LinearGradient(
                     gradient: Gradient(colors: [
                         Color(red: 0.85, green: 0.9, blue: 1.0),
@@ -29,6 +31,7 @@ struct AIOptimizationModalView: View {
                 .ignoresSafeArea()
 
                 VStack(spacing: 20) {
+                    // Select All Toggle
                     Toggle(isOn: $selectAll) {
                         Text("Select All")
                             .font(.headline)
@@ -39,9 +42,11 @@ struct AIOptimizationModalView: View {
                     .shadow(color: .black.opacity(0.05), radius: 4, x: 0, y: 2)
                     .padding(.horizontal)
                     .onChange(of: selectAll) { newValue in
+                        // Select or deselect all tasks when toggled
                         selected = newValue ? Set(tasks.map { $0.id }) : []
                     }
 
+                    // Scrollable list of tasks
                     ScrollView {
                         VStack(spacing: 12) {
                             ForEach(tasks) { task in
@@ -58,6 +63,7 @@ struct AIOptimizationModalView: View {
 
                                     Spacer()
 
+                                    // Checkmark for selected tasks
                                     Image(systemName: selected.contains(task.id) ? "checkmark.circle.fill" : "circle")
                                         .font(.title3)
                                         .foregroundColor(.accentColor)
@@ -67,16 +73,17 @@ struct AIOptimizationModalView: View {
                                 .cornerRadius(12)
                                 .shadow(color: Color.black.opacity(0.05), radius: 4, x: 0, y: 2)
                                 .onTapGesture {
-                                    toggle(task)
+                                    toggle(task) // Toggle selection
                                 }
                             }
                         }
                         .padding(.horizontal)
                     }
 
+                    // Confirm and Optimize Button
                     Button(action: {
                         let chosen = tasks.filter { selected.contains($0.id) }
-                        onConfirm(chosen)
+                        onConfirm(chosen) // Return selected tasks to caller
                         dismiss()
                     }) {
                         Text("✨ Optimize")
@@ -95,22 +102,25 @@ struct AIOptimizationModalView: View {
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") {
-                        dismiss()
+                        dismiss() // Close modal
                     }
                 }
             }
             .onAppear {
-                selected = Set(tasks.map { $0.id }) 
+                // Select all tasks by default on view load
+                selected = Set(tasks.map { $0.id })
             }
         }
     }
 
+    // Toggles individual task selection and syncs `selectAll` state
     private func toggle(_ task: UserTask) {
         if selected.contains(task.id) {
             selected.remove(task.id)
         } else {
             selected.insert(task.id)
         }
+        // Update "Select All" if all are now selected
         selectAll = selected.count == tasks.count
     }
 }

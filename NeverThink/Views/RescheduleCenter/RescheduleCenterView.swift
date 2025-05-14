@@ -6,11 +6,13 @@
 //
 import SwiftUI
 
+// Central hub where users review and resolve scheduling conflicts using AI or manual tools.
 struct RescheduleCenterView: View {
     @EnvironmentObject var groupManager: TaskGroupManager
     @Binding var rescheduleQueue: [UserTask]
     @Binding var selectedTask: UserTask?
 
+    // UI and flow control states
     @State private var selectMode = false
     @State private var selectedTasks: Set<UUID> = []
     @State private var showHardDeadlinePrompt = false
@@ -30,6 +32,7 @@ struct RescheduleCenterView: View {
     var body: some View {
         NavigationStack {
             ZStack {
+                // Gradient background
                 LinearGradient(
                     gradient: Gradient(colors: [
                         Color(red: 0.85, green: 0.9, blue: 1.0),
@@ -44,7 +47,7 @@ struct RescheduleCenterView: View {
                     Text("🛠️ Reschedule Center")
                         .font(.largeTitle.bold())
                         .padding(.top)
-
+                    // Task conflict display
                     ScrollView {
                         VStack(alignment: .leading, spacing: 16) {
                             Text("Tasks Needing Attention")
@@ -71,13 +74,13 @@ struct RescheduleCenterView: View {
                                         }
 
                                         Spacer()
-
+                                        // Conflict marker
                                         if isTaskConflict(task) {
                                             Text("⚡ Conflict")
                                                 .font(.caption2)
                                                 .foregroundColor(.red)
                                         }
-
+                                        // Selectable for batch optimization
                                         if selectMode {
                                             Image(systemName: selectedTasks.contains(task.id) ? "checkmark.circle.fill" : "circle")
                                                 .foregroundColor(.accentColor)
@@ -102,6 +105,8 @@ struct RescheduleCenterView: View {
                         .padding(.bottom, 20)
                     }
                     .id(refreshID)
+                    
+                    // AI Optimize Button
                     Button {
                         showOptimizationModal = true
                     } label: {
@@ -125,7 +130,7 @@ struct RescheduleCenterView: View {
                     .padding(.horizontal)
                     .padding(.bottom)
                 }
-
+                // Loading overlay during AI generation
                 if isLoadingAIPlan {
                     ZStack {
                         Color.black.opacity(0.4)
@@ -159,7 +164,7 @@ struct RescheduleCenterView: View {
                     generateAIOptimizationPrompt(tasks: tasksForDeadline, deadlines: deadlines)
                     showDeadlineScreen = false
                 }
-                .id(UUID()) // ⬅️ Force refresh
+                .id(UUID()) // Force refresh
             })
             .sheet(isPresented: $showTaskEditor) {
                 editorSheetContent
@@ -167,7 +172,7 @@ struct RescheduleCenterView: View {
         }
     }
 
-
+    // Detects if a given task conflicts with others
     private func isTaskConflict(_ task: UserTask) -> Bool {
         let allScheduled = groupManager.allTasks.filter {
             $0.id != task.id && $0.exactTime != nil
@@ -180,6 +185,7 @@ struct RescheduleCenterView: View {
         }
 
         // startsAt — fixed time
+        // Check for overlaps depending on type of time sensitivity
         if let taskStart = task.exactTime {
             for scheduled in allScheduled {
                 if let scheduledStart = scheduled.exactTime {
@@ -218,7 +224,7 @@ struct RescheduleCenterView: View {
     }
 
 
-
+    // Toggle task selection for batch optimization
     private func toggleSelect(_ task: UserTask) {
         if selectedTasks.contains(task.id) {
             selectedTasks.remove(task.id)
@@ -227,13 +233,15 @@ struct RescheduleCenterView: View {
         }
     }
 
+    // Returns events with fixed times in a range
     private func getScheduledEvents(start: Date, end: Date) -> [UserTask] {
         return groupManager.allTasks.filter { task in
             guard let taskDate = task.date else { return false }
             return (taskDate >= start && taskDate <= end) && task.exactTime != nil
         }
     }
-
+    
+    // Prepares deadline entry flow
     private func startOptimization(allTasks: Bool) {
         print("🔥 startOptimization called with allTasks: \(allTasks)")
 
@@ -247,6 +255,7 @@ struct RescheduleCenterView: View {
 
     }
     
+    // Applies AI-generated plan back into group manager
     private func applyAIPlan(_ response: String) {
         guard let data = response.data(using: .utf8) else {
             print("❌ Failed to convert response to data")
@@ -317,7 +326,7 @@ struct RescheduleCenterView: View {
 
 
 
-
+    // Builds GPT prompt and fetches optimized plan
     private func generateAIOptimizationPrompt(tasks: [UserTask], deadlines: [UUID: Date]) {
         let earliest = Date()
         let latest = deadlines.values.sorted().last ?? Calendar.current.date(byAdding: .day, value: 3, to: Date())!
@@ -355,6 +364,8 @@ struct RescheduleCenterView: View {
             }
         }
     }
+    
+    // Review Sheet for user to accept or regenerate plan
     @ViewBuilder
     private var reviewSheet: some View {
         AIRescheduleReviewView(
@@ -398,6 +409,8 @@ struct RescheduleCenterView: View {
             }
         )
     }
+    
+    // Shows task editor when tapping individual task
     @ViewBuilder
     private var editorSheetContent: some View {
         if let editable = taskToEdit {

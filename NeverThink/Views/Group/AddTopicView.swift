@@ -6,6 +6,7 @@
 //
 import SwiftUI
 
+// View for creating a new task group (called "Topics")
 struct AddTopicView: View {
     @EnvironmentObject var groupManager: TaskGroupManager
     @Environment(\.presentationMode) var presentationMode
@@ -28,7 +29,8 @@ struct AddTopicView: View {
                 Text("Add Topic")
                     .font(.largeTitle.bold())
                     .padding(.top)
-
+                
+                // Input for the topic name
                 Group {
                     Text("New Topic")
                         .font(.callout)
@@ -39,7 +41,7 @@ struct AddTopicView: View {
                 }
 
                 Spacer()
-
+                // Save button - adds group and dismisses view
                 Button(action: {
                     groupManager.addGroup(name: topicName)
                     presentationMode.wrappedValue.dismiss()
@@ -51,7 +53,7 @@ struct AddTopicView: View {
                         .foregroundColor(.white)
                         .cornerRadius(12)
                 }
-                .disabled(topicName.isEmpty)
+                .disabled(topicName.isEmpty) // Prevent saving empty names
             }
             .padding(24)
         }

@@ -4,17 +4,23 @@
 //
 //  Created by Gabriel Fernandez on 4/29/25.
 //
+
 import SwiftUI
 
+// A special task card used in the Home screen that adds live ETA button
 struct HomeTaskCardView: View {
     let task: UserTask
     let onDelete: (() -> Void)?
     let onTap: (() -> Void)?
 
+    // Stores the calculated ETA in minutes
     @State private var eta: Int?
     @State private var isLoading = false
 
+    // Access user's current location
     @EnvironmentObject var locationService: LocationService
+
+    // Travel mode (from settings)
     @AppStorage("travelMode") var travelMode: String = "driving"
 
     var body: some View {
@@ -31,6 +37,7 @@ struct HomeTaskCardView: View {
             onTap: onTap
         )
         .overlay(
+            // Display ETA button only if the task has a valid location
             Group {
                 if let loc = task.location,
                    loc != "Home", loc != "Anywhere", !loc.isEmpty {
@@ -49,6 +56,7 @@ struct HomeTaskCardView: View {
         )
     }
 
+    // Calls TravelService to fetch ETA between the user's current location and the task's location
     private func fetchETA() {
         guard let from = locationService.currentAddress,
               let to = task.location else { return }
@@ -75,12 +83,14 @@ struct HomeTaskCardView: View {
     }
 }
 
+// Small button that displays ETA
 private struct ETAButton: View {
     let eta: Int?
     let taskDate: Date?
     let isLoading: Bool
     let action: () -> Void
 
+    // Dynamically determines button color based on urgency
     var buttonColor: Color {
         guard let eta = eta,
               let arrival = taskDate,
@@ -92,11 +102,11 @@ private struct ETAButton: View {
 
         switch leaveIn {
         case ..<0:
-            return .red
+            return .red // You're already late
         case 0..<15:
-            return .orange
+            return .orange // Better leave soon
         case 15...:
-            return .blue
+            return .blue // You're good
         default:
             return .gray
         }

@@ -4,8 +4,10 @@
 //
 //  Created by Gabriel Fernandez on 4/25/25.
 //
+
 import SwiftUI
 
+// Defines the type of time sensitivity a task can have
 enum TimeSensitivity: String, CaseIterable, Identifiable, Codable {
     case none = "none"
     case dueBy = "dueBy"
@@ -24,6 +26,7 @@ enum TimeSensitivity: String, CaseIterable, Identifiable, Codable {
     }
 }
 
+// View for creating and saving a new task into a group
 struct NewTaskView: View {
     @EnvironmentObject var groupManager: TaskGroupManager
     @EnvironmentObject var preferences: UserPreferencesService
@@ -32,6 +35,7 @@ struct NewTaskView: View {
     var targetDate: Date
     var targetGroupId: UUID? = nil
 
+    // Task input fields
     @State private var title: String = ""
     @State private var durationHours: String = "0"
     @State private var durationMinutes: String = "30"
@@ -45,6 +49,7 @@ struct NewTaskView: View {
     @State private var selectedLocationType: LocationType = .home
     @State private var selectedSavedLocationId: UUID? = nil
 
+    // Represents different types of locations the user can select
     enum LocationType: Identifiable, Hashable {
         case home
         case anywhere
@@ -63,6 +68,7 @@ struct NewTaskView: View {
 
     var body: some View {
         ZStack {
+            // Gradient background
             LinearGradient(
                 gradient: Gradient(colors: [
                     Color(red: 0.85, green: 0.9, blue: 1.0),
@@ -79,6 +85,7 @@ struct NewTaskView: View {
                         .font(.largeTitle.bold())
                         .padding(.top)
 
+                    // Title input
                     Group {
                         Text("Title")
                             .font(.callout).foregroundColor(.secondary)
@@ -86,6 +93,7 @@ struct NewTaskView: View {
                             .textFieldStyle(RoundedBorderTextFieldStyle())
                     }
 
+                    // Duration input
                     Group {
                         Text("Duration")
                             .font(.callout).foregroundColor(.secondary)
@@ -95,7 +103,6 @@ struct NewTaskView: View {
                                 .frame(width: 50)
                                 .textFieldStyle(.roundedBorder)
                             Text("hrs")
-
                             TextField("30", text: $durationMinutes)
                                 .keyboardType(.numberPad)
                                 .frame(width: 50)
@@ -104,6 +111,7 @@ struct NewTaskView: View {
                         }
                     }
 
+                    // Time sensitivity toggle and options
                     Group {
                         Toggle("Time Sensitive", isOn: $isTimeSensitive)
 
@@ -126,6 +134,7 @@ struct NewTaskView: View {
                         }
                     }
 
+                    // Urgency selection
                     Group {
                         Text("Task Importance")
                             .font(.callout).foregroundColor(.secondary)
@@ -137,6 +146,7 @@ struct NewTaskView: View {
                         .pickerStyle(SegmentedPickerStyle())
                     }
 
+                    // Location picker
                     Group {
                         Text("Location")
                             .font(.callout).foregroundColor(.secondary)
@@ -170,6 +180,7 @@ struct NewTaskView: View {
                         }
                     }
 
+                    // Save task button
                     Button(action: saveTask) {
                         Text("Save Task")
                             .frame(maxWidth: .infinity)
@@ -188,6 +199,7 @@ struct NewTaskView: View {
         }
     }
 
+    // Adjusts the selected time values to align with the `targetDate`
     private func resetTimesToTargetDate() {
         let calendar = Calendar.current
 
@@ -210,6 +222,7 @@ struct NewTaskView: View {
         }
     }
 
+    // Constructs a UserTask and saves it to the group manager
     private func saveTask() {
         let calendar = Calendar.current
         let normalizedDate = calendar.startOfDay(for: targetDate)
