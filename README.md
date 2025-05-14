@@ -29,6 +29,11 @@ TravelService.shared.configure(apiKey: "GOOGLE_API_KEY_HERE")
 
 ---
 
+## NeverThink Demo Video
+- https://youtu.be/Xhsqc076kfo
+
+---
+
 ## Project Summary
 
 **NeverThink** is a productivity app designed to help users stop overthinking their schedules. Rather than just listing tasks, users provide structured duration, urgency, and location sensitivity—and the app uses **AI and real-time traffic data** to generate a daily plan that’s actually doable.
